@@ -1,0 +1,723 @@
+@import "tailwindcss";
+
+/* Import fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+/* ==========================================
+   SkillHub Design System - 赛博朋克风格
+   参考：SkillHub_Card_Comparison.html 方案4（推荐）
+   版本: v2.1 | 更新: 2024-01-15
+   ========================================== */
+
+@theme {
+  /* === 背景 === */
+  --bg-primary:   #0a0a0f;    /* 主背景 */
+  --bg-secondary: #12121a;    /* 面板底色 */
+  --bg-tertiary:  #1a1a24;    /* 卡片底色 */
+
+  /* === 边框色 === */
+  --border-subtle:  rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.1);   /* 从 0.12 提升到 0.15 */
+  --border-hover:   rgba(0, 212, 170, 0.4);
+
+  /* === 强调色 === */
+  --accent-primary:   #00d4aa;   /* 青绿 - 主色 */
+  --accent-secondary: #a855f7;   /* 紫色 - 次色 */
+
+  /* === Tailwind v4 颜色定义（用于渐变类） === */
+  --color-cyber-dark:    #0a0a0f;
+  --color-cyber-panel:   #12121a;
+  --color-cyber-border:  #1e1e2e;
+  --color-cyber-accent:  #00d4aa;
+  --color-cyber-accent2: #a855f7;
+
+  /* === 语义色 === */
+  --color-orange:  #f97316;    /* Claude Code */
+  --color-blue:    #3b82f6;    /* OpenCode */
+  --color-purple:  #a855f7;    /* Cursor */
+  --color-green:   #10b981;    /* CodeBuddy */
+  --color-pink:    #ec4899;    /* Trae */
+  --color-red:     #ef4444;    /* 删除/错误 */
+
+  /* === 文字色 === */
+  --text-white:    #ffffff;
+  --text-gray:     #e5e7eb;
+  --text-muted:    #9ca3af;
+  --text-dark:     #6b7280;
+
+  /* === 字体 === */
+  --font-sans:     'Inter', system-ui, sans-serif;
+  --font-mono:     'JetBrains Mono', monospace;
+
+  /* === 圆角 === */
+  --radius-sm:     8px;   /* 标签、小按钮 */
+  --radius-md:    12px;  /* 按钮、输入框 */
+  --radius-lg:    16px;  /* 卡片、面板 */
+  --radius-xl:    24px;  /* 大面板、模态框 */
+
+  /* === 玻璃面板 === */
+  --bg-glass: rgba(18, 18, 26, 0.8);
+}
+
+/* 亮色主题 */
+.light-theme {
+  /* === 背景 === */
+  --bg-primary:   #f8fafc;    /* 浅灰背景 */
+  --bg-secondary: #ffffff;    /* 白色面板 */
+  --bg-tertiary:  #f3f4f6;    /* 浅灰卡片 */
+
+  /* === 边框色 === */
+  --border-subtle:  rgba(0, 0, 0, 0.06);
+  --border-default: rgba(0, 0, 0, 0.1);
+  --border-hover:   rgba(0, 212, 170, 0.3);
+
+  /* === 文字色 === */
+  --text-white:    #111827;    /* 深色主文字 */
+  --text-gray:     #4b5563;    /* 深色次要文字 */
+  --text-muted:    #6b7280;    /* 暗淡文字 */
+  --text-dark:     #374151;    /* 更深文字 */
+
+  /* === 玻璃面板 === */
+  --bg-glass: rgba(242, 242, 247, 0.8);
+
+  /* === 卡片背景 === */
+  --bg-tertiary: #f3f4f6;
+}
+
+/* 系统模式默认使用暗黑主题变量，无需额外定义 */
+
+/* Base styles */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: var(--font-sans);
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%);
+  color: var(--text-gray);
+}
+
+#app {
+  height: 100%;
+}
+
+/* ==========================================
+   核心组件 - 方案4：渐变边框（推荐）
+   ========================================== */
+
+/* === 卡片（渐变边框方案 - 推荐） === */
+.skill-card {
+  position: relative;
+  background: var(--bg-tertiary);
+  backdrop-filter: blur(20px);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 渐变边框 - 使用 ::before 伪元素 */
+.skill-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg,
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(255, 255, 255, 0.04) 50%,
+      rgba(255, 255, 255, 0.12) 100%
+  );
+  /* 使用 -webkit-mask 实现镂空效果 */
+  -webkit-mask: linear-gradient(#fff 0 0) content-box,
+                  linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.8;
+  transition: opacity 0.3s, background 0.3s;
+  pointer-events: none;
+}
+
+/* Hover 状态 - 边框变为主题色渐变 */
+.skill-card:hover {
+  transform: translateY(-4px);
+}
+
+.skill-card:hover::before {
+  opacity: 1;
+  background: linear-gradient(135deg,
+      rgba(0, 212, 170, 0.4) 0%,
+      rgba(168, 85, 247, 0.3) 100%
+  );
+}
+
+/* === 玻璃态面板 === */
+.glass-panel {
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+
+/* 圆角覆盖 - 用于 header 等需要直角的元素 */
+.glass-panel.rounded-none {
+  border-radius: 0;
+}
+
+.glass-panel.rounded-none::before {
+  border-radius: 0;
+}
+
+/* ==========================================
+   按钮
+   ========================================== */
+
+/* === 主要按钮 === */
+.btn-primary {
+  background: linear-gradient(135deg, #00d4aa, #a855f7);
+  color: #0a0a0f;
+  padding: 12px 32px;
+  border-radius: 10px;  /* 使用 10px 而不是 12px */
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 212, 170, 0.25);  /* 调整阴影 */
+  transition: all 0.3s ease;
+}
+
+/* Hover 时上移 2px，阴影增强 */
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 212, 170, 0.4),
+              0 0 30px rgba(0, 212, 170, 0.2);
+}
+
+.btn-primary:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* === 次要按钮 === */
+.btn-secondary {
+  background: transparent;
+  border: 1px solid rgba(0, 212, 170, 0.4);
+  color: #00d4aa;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+  background: rgba(0, 212, 170, 0.1);
+  border-color: rgba(0, 212, 170, 0.6);
+  box-shadow: 0 0 20px rgba(0, 212, 170, 0.15);
+}
+
+/* === 幽灵按钮 === */
+.btn-ghost {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #9ca3af;
+  padding: 8px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-gray);
+}
+
+/* === 图标按钮（36px） === */
+.btn-icon {
+  width: 36px;  /* 36px 而不是 40px */
+  height: 36px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;  /* 10px */
+  color: #9ca3af;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+  border-color: rgba(0, 212, 170, 0.4);
+  color: #00d4aa;
+  background: rgba(0, 212, 170, 0.08);
+  box-shadow: 0 0 12px rgba(0, 212, 170, 0.15);
+}
+
+.btn-icon:hover i {
+  transform: scale(1.1);
+}
+
+/* 删除按钮 */
+.btn-icon.delete:hover {
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.15);
+}
+
+/* ==========================================
+   表单组件
+   ========================================== */
+
+/* === Toggle 开关（40px 宽，22px 高） === */
+.toggle-switch {
+  position: relative;
+  width: 40px;  /* 40px 而不是 44px */
+  height: 22px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-default);
+  border-radius: 11px;  /* 11px */
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.toggle-switch:hover {
+  border-color: rgba(0, 212, 170, 0.3);
+}
+
+.toggle-switch.active {
+  background: linear-gradient(135deg, #00d4aa, #00b894);
+  border-color: transparent;
+  box-shadow: 0 0 10px rgba(0, 212, 170, 0.4);  /* 调整阴影 */
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;  /* 18px */
+  height: 18px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch.active::after {
+  transform: translateX(18px);  /* 18px 而不是 20px */
+}
+
+/* === 复选框（16px 尺寸） === */
+.cyber-checkbox {
+  appearance: none;
+  width: 16px;  /* 16px 而不是 18px */
+  height: 16px;
+  background: var(--bg-glass);
+  border: 1.5px solid var(--border-default);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.cyber-checkbox:hover {
+  border-color: rgba(0, 212, 170, 0.4);
+  background: rgba(0, 212, 170, 0.05);
+}
+
+.cyber-checkbox:checked {
+  background: #00d4aa;
+  border-color: #00d4aa;
+  box-shadow: 0 0 10px rgba(0, 212, 170, 0.4);
+}
+
+.cyber-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(45deg);
+  width: 3px;  /* 3px 而不是 4px */
+  height: 7px;  /* 7px 而不是 8px */
+  border: solid #0a0a0f;
+  border-width: 0 2px 2px 0;
+}
+
+/* === 单选按钮 === */
+.cyber-radio {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: var(--bg-glass);
+  border: 2px solid var(--border-default);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.cyber-radio:hover {
+  border-color: rgba(0, 212, 170, 0.4);
+  background: rgba(0, 212, 170, 0.05);
+}
+
+.cyber-radio:checked {
+  border-color: #00d4aa;
+  background: #00d4aa;
+  box-shadow: 0 0 12px rgba(0, 212, 170, 0.4);
+}
+
+.cyber-radio:checked::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  background: #0a0a0f;
+  border-radius: 50%;
+}
+
+/* === 输入框 === */
+.input-field {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(10, 10, 15, 0.8);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-gray);
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.input-field:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: #00d4aa;
+  box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.1),
+              0 0 20px rgba(0, 212, 170, 0.1);
+}
+
+.input-field::placeholder {
+  color: #6b7280;
+}
+
+/* ==========================================
+   标签
+   ========================================== */
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;  /* 6px 12px -> 4px 10px */
+  background: rgba(0, 212, 170, 0.1);
+  border: 1px solid rgba(0, 212, 170, 0.2);
+  border-radius: 6px;  /* 6px */
+  font-size: 12px;
+  color: #00d4aa;
+}
+
+/* 可交互标签 */
+.tag.interactive {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tag.interactive:hover {
+  background: rgba(0, 212, 170, 0.15);
+  border-color: rgba(0, 212, 170, 0.4);
+}
+
+/* 可删除标签 */
+.tag .tag-remove {
+  margin-left: 6px;
+  opacity: 0.6;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tag .tag-remove:hover {
+  opacity: 1;
+  color: #ef4444;
+}
+
+/* ==========================================
+   动画
+   ========================================== */
+
+/* === 页面加载 === */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s ease-out;
+}
+
+/* === 发光脉冲 === */
+@keyframes glow {
+  0%   { box-shadow: 0 0 20px rgba(0, 212, 170, 0.1); }
+  100% { box-shadow: 0 0 40px rgba(0, 212, 170, 0.3),
+                    0 0 60px rgba(168, 85, 247, 0.1); }
+}
+
+.animate-glow {
+  animation: glow 3s ease-in-out infinite alternate;
+}
+
+/* === 背景光晕浮动 === */
+@keyframes float {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(30px, -30px); }
+}
+
+.bg-glow {
+  position: fixed;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.15;
+  pointer-events: none;
+  animation: float 8s ease-in-out infinite;
+}
+
+/* === 展开面板 === */
+.expand-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.expand-panel.open {
+  max-height: 500px;
+}
+
+/* === 交错动画 === */
+.stagger-children > * {
+  opacity: 0;
+  animation: slideUp 0.4s ease-out forwards;
+}
+
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+
+/* ==========================================
+   滚动条
+   ========================================== */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0f;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e1e2e;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00d4aa;
+}
+
+/* ==========================================
+   发光效果
+   ========================================== */
+
+/* 主色发光 */
+.glow-accent {
+  box-shadow: 0 0 20px rgba(0, 212, 170, 0.3);
+}
+
+/* 混合发光 */
+.glow-mixed {
+  box-shadow: 0 0 20px rgba(0, 212, 170, 0.3),
+              0 0 40px rgba(168, 85, 247, 0.1);
+}
+
+/* 红色发光 */
+.glow-red {
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+/* ==========================================
+   工具品牌色（用于组件中动态引用）
+   ========================================== */
+
+/* Claude Code - 橙色 */
+.brand-claude {
+  color: var(--color-orange);
+}
+
+/* OpenCode - 蓝色 */
+.brand-opencode {
+  color: var(--color-blue);
+}
+
+/* Cursor - 紫色 */
+.brand-cursor {
+  color: var(--color-purple);
+}
+
+/* CodeBuddy - 绿色 */
+.brand-codebuddy {
+  color: var(--color-green);
+}
+
+/* Trae - 粉色 */
+.brand-trae {
+  color: var(--color-pink);
+}
+
+/* ==========================================
+   其他实用类
+   ========================================== */
+
+/* 渐变文字 */
+.gradient-text {
+  background: linear-gradient(135deg, #00d4aa 0%, #a855f7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Action button */
+.action-btn {
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+  border-color: rgba(0, 212, 170, 0.5);
+  color: #00d4aa;
+}
+
+.action-btn.delete:hover {
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #ef4444;
+}
+
+/* Nav item */
+.nav-item {
+  transition: all 0.2s ease;
+}
+
+.nav-item:hover {
+  background: rgba(0, 212, 170, 0.08);
+}
+
+.nav-item.active {
+  background: rgba(0, 212, 170, 0.12);
+  border-left: 2px solid #00d4aa;
+}
+
+/* ==========================================
+   分类图标渐变
+   ========================================== */
+
+/* 内容创作 - 粉色 */
+.cat-content {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.2), rgba(244, 114, 182, 0.2));
+  border: 1px solid rgba(236, 72, 153, 0.3);
+}
+
+/* 认知增强 - 紫色 */
+.cat-cognitive {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(139, 92, 246, 0.2));
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+/* 开发辅助 - 橙色 */
+.cat-dev {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.2), rgba(251, 146, 60, 0.2));
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+/* 数据分析 - 青色 */
+.cat-data {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(34, 211, 238, 0.2));
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+/* 教育学习 - 绿色 */
+.cat-education {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(74, 222, 128, 0.2));
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* AI/LLM - 蓝色 */
+.cat-ai {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(96, 165, 250, 0.2));
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* 其他 - 灰色 */
+.cat-other {
+  background: linear-gradient(135deg, rgba(107, 114, 128, 0.2), rgba(75, 85, 99, 0.2));
+  border: 1px solid rgba(107, 114, 128, 0.3);
+}
+
+/* ==========================================
+   工具状态指示点
+   ========================================== */
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.status-dot.active {
+  background: #00d4aa;
+  box-shadow: 0 0 8px rgba(0, 212, 170, 0.6);
+}
+
+.status-dot.inactive {
+  background: #6b7280;
+}
+
+/* ==========================================
+   脉冲慢动画
+   ========================================== */
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.05; }
+  50% { opacity: 0.1; }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ==========================================
+   Glass Panel 禁用悬停效果
+   ========================================== */
+
+.glass-panel-no-hover {
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+
+/* 覆盖 glass-panel 的 ::before 伪元素 */
+.glass-panel-no-hover::before {
+  display: none;
+}
