@@ -1,9 +1,27 @@
 package tools
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"skillhub/backend/utils"
 )
+
+// validateSkillName 验证 skill 名称安全性
+func validateSkillName(name string) error {
+	if name == "" {
+		return fmt.Errorf("skill name cannot be empty")
+	}
+	if strings.Contains(name, "..") {
+		return fmt.Errorf("invalid skill name: contains '..'")
+	}
+	if strings.ContainsAny(name, "/\\") {
+		return fmt.Errorf("invalid skill name: contains path separator")
+	}
+	return nil
+}
 
 // BaseAdapter 提供工具适配器的公共实现
 type BaseAdapter struct {
@@ -41,6 +59,16 @@ func (a *BaseAdapter) IsInstalled() bool {
 }
 
 func (a *BaseAdapter) EnableSkill(skillName string, skillPath string) error {
+	// 验证 skillName 安全性
+	if err := validateSkillName(skillName); err != nil {
+		return err
+	}
+
+	// 验证 skillPath 不逃逸
+	if err := utils.ValidatePathInDir(skillPath, skillPath); err != nil {
+		return fmt.Errorf("invalid skill path: %w", err)
+	}
+
 	// 确保 Skills 目录存在
 	if err := os.MkdirAll(a.skillsPath, 0755); err != nil {
 		return err
@@ -56,11 +84,16 @@ func (a *BaseAdapter) EnableSkill(skillName string, skillPath string) error {
 		}
 	}
 
-	// 复制整个目录
-	return copyDir(skillPath, destPath)
+	// 复制整个目录（不跳过 .git）
+	return utils.CopyDir(skillPath, destPath, false)
 }
 
 func (a *BaseAdapter) DisableSkill(skillName string) error {
+	// 验证 skillName 安全性
+	if err := validateSkillName(skillName); err != nil {
+		return err
+	}
+
 	destPath := filepath.Join(a.skillsPath, skillName)
 	return os.RemoveAll(destPath)
 }
@@ -92,59 +125,4 @@ func (a *BaseAdapter) ListEnabledSkills() ([]string, error) {
 	}
 
 	return skills, nil
-}
-
-// copyDir 递归复制目录
-func copyDir(src, dst string) error {
-	// 获取源目录信息
-	info, err := os.Stat(src)
-	if err != nil {
-		return err
-	}
-
-	// 创建目标目录
-	if err := os.MkdirAll(dst, info.Mode()); err != nil {
-		return err
-	}
-
-	// 读取源目录
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range entries {
-		srcPath := filepath.Join(src, entry.Name())
-		dstPath := filepath.Join(dst, entry.Name())
-
-		if entry.IsDir() {
-			if err := copyDir(srcPath, dstPath); err != nil {
-				return err
-			}
-		} else {
-			if err := copyFile(srcPath, dstPath); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-// copyFile 复制文件
-func copyFile(src, dst string) error {
-	// 读取源文件
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return err
-	}
-
-	// 获取源文件权限
-	info, err := os.Stat(src)
-	if err != nil {
-		return err
-	}
-
-	// 写入目标文件
-	return os.WriteFile(dst, data, info.Mode())
 }

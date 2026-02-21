@@ -39,10 +39,35 @@ type CloneResult struct {
 	Error    string   // 错误信息
 }
 
+// allowedGitDomains 允许的 Git 仓库域名
+var allowedGitDomains = []string{
+	"https://github.com/",
+	"https://gitlab.com/",
+	"https://gitee.com/",
+}
+
+// ValidateGitURL 验证 Git URL 是否来自允许的域名
+func ValidateGitURL(url string) error {
+	url = strings.TrimSpace(url)
+
+	for _, prefix := range allowedGitDomains {
+		if strings.HasPrefix(url, prefix) {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("URL 必须来自 github.com、gitlab.com 或 gitee.com")
+}
+
 // Clone 浅克隆仓库到临时目录
 func (g *GitClient) Clone(url string) (*CloneResult, error) {
 	if !g.IsGitInstalled() {
 		return nil, fmt.Errorf("Git 未安装，请先安装 Git")
+	}
+
+	// 验证 URL 来源
+	if err := ValidateGitURL(url); err != nil {
+		return nil, err
 	}
 
 	// 创建临时目录
@@ -179,6 +204,28 @@ func (g *GitClient) Pull(repoPath string) error {
 	return nil
 }
 
+// PullWithGitDir 拉取更新（支持分离的 .git 目录）
+// gitDir: .git 目录的路径
+// workTree: 工作目录的路径
+func (g *GitClient) PullWithGitDir(gitDir, workTree string) error {
+	cmd := exec.Command("git", "--git-dir", gitDir, "--work-tree", workTree, "pull")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("拉取失败: %s", string(output))
+	}
+	return nil
+}
+
+// GetTagWithGitDir 获取 Git tag（支持分离的 .git 目录）
+func (g *GitClient) GetTagWithGitDir(gitDir string) (string, error) {
+	cmd := exec.Command("git", "--git-dir", gitDir, "describe", "--tags", "--abbrev=0")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("获取 tag 失败: %s", string(output))
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
 // GetRemoteURL 获取远程仓库 URL
 func (g *GitClient) GetRemoteURL(repoPath string) (string, error) {
 	cmd := exec.Command("git", "config", "--get", "remote.origin.url")
@@ -190,18 +237,48 @@ func (g *GitClient) GetRemoteURL(repoPath string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
-// MoveGitDir 移动 .git 目录
+// MoveGitDir 复制 .git 目录（支持跨磁盘）
+// srcPath: 包含 .git 子目录的源路径（仓库根目录）
+// destPath: .git 目录的目标路径（直接是 .git 内容存放的位置）
+// 注意：改为复制模式，不删除源目录，以支持同一仓库安装多个 Skill
 func (g *GitClient) MoveGitDir(srcPath, destPath string) error {
 	srcGit := filepath.Join(srcPath, ".git")
-	destGit := filepath.Join(destPath, ".git")
+	destGit := destPath // 直接使用 destPath，不再追加 .git
 
-	// 确保目标目录存在
+	// 检查源 .git 是否存在
+	srcInfo, err := os.Stat(srcGit)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// .git 不存在，可能是用户没有安装 Git 或克隆失败
+			// 返回 nil 允许继续（但不会保存 .git 用于更新检查）
+			return nil
+		}
+		return fmt.Errorf("无法访问 .git 目录: %w", err)
+	}
+
+	// 确保目标父目录存在
 	if err := os.MkdirAll(filepath.Dir(destGit), 0755); err != nil {
 		return err
 	}
 
-	// 移动 .git 目录
-	return os.Rename(srcGit, destGit)
+	// 检查 .git 是文件还是目录（Git worktree 可能使用文件）
+	if !srcInfo.IsDir() {
+		// 如果是文件（gitfile），读取内容获取实际 .git 路径
+		content, err := os.ReadFile(srcGit)
+		if err != nil {
+			return fmt.Errorf("读取 .git 文件失败: %w", err)
+		}
+		// gitfile 格式: gitdir: /path/to/.git/worktrees/xxx
+		// 直接复制这个文件到目标位置
+		return os.WriteFile(destGit, content, srcInfo.Mode())
+	}
+
+	// 复制 .git 目录（不删除源目录，支持同一仓库安装多个 Skill）
+	if err := CopyDir(srcGit, destGit, false); err != nil {
+		return fmt.Errorf("复制 .git 目录失败: %w", err)
+	}
+
+	return nil
 }
 
 // GetTag 获取当前目录的 Git tag

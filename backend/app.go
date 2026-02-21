@@ -23,118 +23,6 @@ type App struct {
 	manager  *skill.Manager
 }
 
-// 辅助函数：复制文件
-func copyFile(src, dst string) error {
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(dst, data, 0644)
-}
-
-// 辅助函数：复制目录（递归复制，包括子目录）
-func copyDirectory(src, dst string) error {
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// 计算相对路径
-		relPath, err := filepath.Rel(src, path)
-		if err != nil {
-			return err
-		}
-		dstPath := filepath.Join(dst, relPath)
-
-		// 如果是目录，创建对应目录
-		if info.IsDir() {
-			return os.MkdirAll(dstPath, info.Mode())
-		}
-
-		// 复制文件
-		srcData, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(dstPath, srcData, info.Mode())
-	})
-}
-
-// 辅助函数：创建 ZIP 文件
-func createZip(files []string, zipPath string) error {
-	zipFile, err := os.Create(zipPath)
-	if err != nil {
-		return err
-	}
-	defer zipFile.Close()
-
-	zipWriter := zip.NewWriter(zipFile)
-	defer zipWriter.Close()
-
-	for _, file := range files {
-		// 读取文件数据
-		data, err := os.ReadFile(file)
-		if err != nil {
-			return err
-		}
-
-		// 在 ZIP 中创建文件条目
-		writer, err := zipWriter.Create(filepath.Base(file))
-		if err != nil {
-			return err
-		}
-
-		// 写入数据到 ZIP 条目
-		_, err = writer.Write(data)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// 辅助函数：解压 ZIP 文件
-func unzipFile(zipPath, destDir string) error {
-	// 打开 ZIP 文件
-	r, err := zip.OpenReader(zipPath)
-	if err != nil {
-		return err
-	}
-	defer r.Close()
-
-	// 创建目标目录
-	if err := os.MkdirAll(destDir, 0755); err != nil {
-		return err
-	}
-
-	// 解压文件
-	for _, f := range r.File {
-		rc, err := f.Open()
-		if err != nil {
-			return err
-		}
-		defer rc.Close()
-
-		path := filepath.Join(destDir, f.Name)
-
-		// 创建目标文件（使用 os.Create 而不是 os.Open）
-		file, err := os.Create(path)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-
-		// 写入解压数据
-		_, err = io.Copy(file, rc)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // NewApp 创建新的应用实例
 func NewApp() *App {
 	return &App{}
@@ -449,7 +337,7 @@ func (a *App) MigrateData(newPath string) error {
 		oldDir := filepath.Join(oldExpanded, dirName)
 		newDir := filepath.Join(newExpanded, dirName)
 		if _, err := os.Stat(oldDir); err == nil {
-			if err := copyDirectory(oldDir, newDir); err != nil {
+			if err := utils.CopyDir(oldDir, newDir, false); err != nil {
 				return fmt.Errorf("迁移 %s 失败: %w", dirName, err)
 			}
 		}
@@ -933,7 +821,7 @@ func (a *App) ExportData(exportSkills bool, exportSettings bool) (string, error)
 		skillsSrc := filepath.Join(expandedPath, "skills")
 		if _, err := os.Stat(skillsSrc); err == nil {
 			destDir := filepath.Join(exportDir, "skills")
-			if err := copyDirectory(skillsSrc, destDir); err != nil {
+			if err := utils.CopyDir(skillsSrc, destDir, false); err != nil {
 				os.RemoveAll(tempDir)
 				return "", fmt.Errorf("导出 Skills 失败: %w", err)
 			}
@@ -944,7 +832,7 @@ func (a *App) ExportData(exportSkills bool, exportSettings bool) (string, error)
 	gitSrc := filepath.Join(expandedPath, "git")
 	if _, err := os.Stat(gitSrc); err == nil {
 		destDir := filepath.Join(exportDir, "git")
-		if err := copyDirectory(gitSrc, destDir); err != nil {
+		if err := utils.CopyDir(gitSrc, destDir, false); err != nil {
 			os.RemoveAll(tempDir)
 			return "", fmt.Errorf("导出 Git 缓存失败: %w", err)
 		}
@@ -954,7 +842,7 @@ func (a *App) ExportData(exportSkills bool, exportSettings bool) (string, error)
 	configSrc := filepath.Join(expandedPath, "config")
 	if _, err := os.Stat(configSrc); err == nil {
 		destDir := filepath.Join(exportDir, "config")
-		if err := copyDirectory(configSrc, destDir); err != nil {
+		if err := utils.CopyDir(configSrc, destDir, false); err != nil {
 			os.RemoveAll(tempDir)
 			return "", fmt.Errorf("导出配置失败: %w", err)
 		}
@@ -965,7 +853,7 @@ func (a *App) ExportData(exportSkills bool, exportSettings bool) (string, error)
 		settingsSrc := filepath.Join(expandedPath, "settings.json")
 		if _, err := os.Stat(settingsSrc); err == nil {
 			destFile := filepath.Join(exportDir, "settings.json")
-			if err := copyFile(settingsSrc, destFile); err != nil {
+			if err := utils.CopyFile(settingsSrc, destFile); err != nil {
 				os.RemoveAll(tempDir)
 				return "", fmt.Errorf("导出设置失败: %w", err)
 			}
@@ -975,7 +863,7 @@ func (a *App) ExportData(exportSkills bool, exportSettings bool) (string, error)
 		customToolsSrc := filepath.Join(expandedPath, "custom-tools.json")
 		if _, err := os.Stat(customToolsSrc); err == nil {
 			destFile := filepath.Join(exportDir, "custom-tools.json")
-			if err := copyFile(customToolsSrc, destFile); err != nil {
+			if err := utils.CopyFile(customToolsSrc, destFile); err != nil {
 				os.RemoveAll(tempDir)
 				return "", fmt.Errorf("导出自定义工具配置失败: %w", err)
 			}
@@ -985,7 +873,7 @@ func (a *App) ExportData(exportSkills bool, exportSettings bool) (string, error)
 		metadataSrc := filepath.Join(expandedPath, "metadata")
 		if _, err := os.Stat(metadataSrc); err == nil {
 			destDir := filepath.Join(exportDir, "metadata")
-			if err := copyDirectory(metadataSrc, destDir); err != nil {
+			if err := utils.CopyDir(metadataSrc, destDir, false); err != nil {
 				os.RemoveAll(tempDir)
 				return "", fmt.Errorf("导出元数据失败: %w", err)
 			}
@@ -1151,7 +1039,7 @@ func (a *App) ImportData(filePath string, mergeSkills bool, mergeSettings bool) 
 	defer os.RemoveAll(tempDir)
 
 	// 解压 ZIP
-	if err := unzipFile(filePath, tempDir); err != nil {
+	if err := utils.UnzipFile(filePath, tempDir); err != nil {
 		return fmt.Errorf("解压文件失败: %w", err)
 	}
 

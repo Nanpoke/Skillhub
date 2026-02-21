@@ -1,10 +1,8 @@
 package skill
 
 import (
-	"archive/zip"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	stdruntime "runtime"
@@ -335,50 +333,9 @@ func (m *Manager) scanSkillsRecursive(basePath string, relativePath string, skil
 	}
 }
 
-// unzipFile 解压 ZIP 文件到指定目录
+// unzipFile 解压 ZIP 文件到指定目录（使用安全验证）
 func unzipFile(zipPath, destDir string) error {
-	r, err := zip.OpenReader(zipPath)
-	if err != nil {
-		return err
-	}
-	defer r.Close()
-
-	for _, f := range r.File {
-		fpath := filepath.Join(destDir, f.Name)
-
-		// 创建目录
-		if f.FileInfo().IsDir() {
-			os.MkdirAll(fpath, os.ModePerm)
-			continue
-		}
-
-		// 创建父目录
-		if err := os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
-			return err
-		}
-
-		// 解压文件
-		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
-		if err != nil {
-			return err
-		}
-
-		rc, err := f.Open()
-		if err != nil {
-			outFile.Close()
-			return err
-		}
-
-		_, err = io.Copy(outFile, rc)
-		outFile.Close()
-		rc.Close()
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return utils.UnzipFile(zipPath, destDir)
 }
 
 // scanLocalZip 扫描本地压缩包
@@ -919,58 +876,14 @@ func (m *Manager) logOperation(action, skillName, status string) {
 	m.storage.AppendOperationLog(log)
 }
 
-// copyDir 递归复制目录
+// copyDir 递归复制目录（跳过 .git）
 func copyDir(src, dst string) error {
-	info, err := os.Stat(src)
-	if err != nil {
-		return err
-	}
-
-	if err := os.MkdirAll(dst, info.Mode()); err != nil {
-		return err
-	}
-
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range entries {
-		srcPath := filepath.Join(src, entry.Name())
-		dstPath := filepath.Join(dst, entry.Name())
-
-		// 跳过 .git 目录
-		if entry.Name() == ".git" {
-			continue
-		}
-
-		if entry.IsDir() {
-			if err := copyDir(srcPath, dstPath); err != nil {
-				return err
-			}
-		} else {
-			if err := copyFile(srcPath, dstPath); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
+	return utils.CopyDir(src, dst, true)
 }
 
 // copyFile 复制文件
 func copyFile(src, dst string) error {
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return err
-	}
-
-	info, err := os.Stat(src)
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(dst, data, info.Mode())
+	return utils.CopyFile(src, dst)
 }
 
 // parseFrontmatter 解析 SKILL.md 的 frontmatter
@@ -1069,8 +982,8 @@ func (m *Manager) CheckSkillUpdates() ([]SkillUpdateInfo, error) {
 			continue // Git 目录不存在，跳过
 		}
 
-		// 获取本地版本
-		localTag, err := git.GetTag(gitDir)
+		// 获取本地版本（使用支持分离 .git 目录的方法）
+		localTag, err := git.GetTagWithGitDir(gitDir)
 		if err != nil {
 			continue
 		}
@@ -1123,30 +1036,19 @@ func (m *Manager) UpdateSkill(name string) error {
 		return fmt.Errorf("Git 目录不存在，无法更新。此 Skill 可能是本地安装或 Git 信息丢失，请尝试重新安装")
 	}
 
-	// 执行 git pull 更新
+	// 执行 git pull 更新（使用分离的 .git 目录和工作目录）
 	git := utils.NewGitClient()
-	if err := git.Pull(gitDir); err != nil {
+	if err := git.PullWithGitDir(gitDir, skillDir); err != nil {
 		return fmt.Errorf("git pull failed: %w", err)
 	}
 
 	// 获取新的版本号
-	newTag, err := git.GetTag(gitDir)
+	newTag, err := git.GetTagWithGitDir(gitDir)
 	if err == nil {
 		meta.GitVersion = newTag
 	}
 	meta.UpdatedAt = time.Now()
 	meta.HasUpdate = false // 更新后清除标识
-
-	// 更新 Skill 文件（从 Git 目录复制，排除 .git）
-	// 先删除旧的 Skill 文件
-	if err := os.RemoveAll(skillDir); err != nil {
-		return fmt.Errorf("failed to remove old skill files: %w", err)
-	}
-
-	// 重新复制
-	if err := m.copySkillFiles(gitDir, skillDir); err != nil {
-		return fmt.Errorf("failed to copy updated files: %w", err)
-	}
 
 	// 保存更新后的元数据
 	if err := m.storage.SaveMetadata(name, meta); err != nil {
