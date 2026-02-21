@@ -784,14 +784,14 @@ async function deleteCategory(name: string) {
               >
               <i :class="['fas', checkingUpdate ? 'fa-spinner fa-spin' : 'fa-cloud-download-alt', 'text-gray-500 group-hover:text-cyber-accent transition-colors mb-2']"></i>
               <h4 class="text-sm font-medium text-white mb-1">检查更新</h4>
-              <p class="text-xs text-gray-500">当前 v1.0.0</p>
+              <p class="text-xs text-gray-500">当前 v1.0.1</p>
             </button>
           </div>
         </div>
 
         <!-- Footer Info -->
         <div class="text-center text-sm text-gray-600 space-y-1">
-          <p>SkillHub v1.0.0</p>
+          <p>SkillHub v1.0.1</p>
           <p>开源软件 · MIT License</p>
         </div>
       </div>

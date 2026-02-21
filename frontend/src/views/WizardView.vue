@@ -500,7 +500,7 @@ function goToStep2() {
 
       <!-- Footer -->
       <div class="text-center mt-8 text-sm text-gray-600">
-        <p>SkillHub v1.0 · 开源软件</p>
+        <p>SkillHub v1.0.1 · 开源软件</p>
       </div>
     </div>
 
