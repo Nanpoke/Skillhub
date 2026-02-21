@@ -33,7 +33,7 @@ async function loadFiles(skillName: string) {
   error.value = null
 
   try {
-    const result = await App.ListSkillFiles(skillName)
+    const result = await App.ListSkillFiles(skillName, '')
     files.value = (result || []).map(f => ({
       name: String(f.name || ''),
       path: String(f.path || ''),
