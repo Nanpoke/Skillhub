@@ -19,16 +19,6 @@ const router = createRouter({
       component: () => import('../views/InstallView.vue')
     },
     {
-      path: '/install/git',
-      name: 'install-git',
-      component: () => import('../views/GitInstallView.vue')
-    },
-    {
-      path: '/install/local',
-      name: 'install-local',
-      component: () => import('../views/LocalInstallView.vue')
-    },
-    {
       path: '/wizard',
       name: 'wizard',
       component: () => import('../views/WizardView.vue')

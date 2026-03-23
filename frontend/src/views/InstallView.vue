@@ -9,6 +9,40 @@ import { OnFileDrop, OnFileDropOff } from '../../wailsjs/runtime/runtime'
 const router = useRouter()
 const skillStore = useSkillStore()
 
+// 标签相关
+const allTags = computed(() => skillStore.allTags)
+
+// 计算常用标签（按使用频率排序，取前15个）
+const popularTags = computed(() => {
+  const tagCount: Record<string, number> = {}
+  skillStore.skills.forEach(s => {
+    s.tags?.forEach(t => {
+      tagCount[t] = (tagCount[t] || 0) + 1
+    })
+  })
+  return Object.entries(tagCount)
+    .sort((a, b) => b[1] - a[1])
+    .map(([tag]) => tag)
+    .slice(0, 15)
+})
+
+// 获取标签颜色
+function getTagColor(tag: string): string {
+  const colors = [
+    'bg-blue-500',
+    'bg-purple-500',
+    'bg-cyan-500',
+    'bg-orange-500',
+    'bg-pink-500',
+    'bg-green-500'
+  ]
+  let hash = 0
+  for (let i = 0; i < tag.length; i++) {
+    hash = tag.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return colors[Math.abs(hash) % colors.length]
+}
+
 // 当前 Tab
 const activeTab = ref<'local' | 'git'>('local')
 
@@ -26,13 +60,32 @@ const isDragover = ref(false)
 // === Git 安装 Tab ===
 const gitUrl = ref('')
 const gitLoading = ref(false)
+const gitLoadingStep = ref('')
 const gitError = ref<string | null>(null)
 const gitStep = ref<'input' | 'preview' | 'installing' | 'done'>('input')
 const urlInfo = ref<any>(null)
 const cloneResult = ref<skill.GitInstallResult | null>(null)
 const tempPath = ref('')
-const selectedSkills = ref<Set<number>>(new Set())
-const gitOptions = ref<Map<number, skill.InstallOptions>>(new Map())
+const selectedSkills = ref<number[]>([])
+const gitOptions = ref<Record<number, skill.InstallOptions>>({})
+let loadingTimer: number | null = null
+
+// 辅助函数：检查 Skill 是否已安装
+function isSkillInstalled(skillInfo: any): boolean {
+  const skillId = `${skillInfo.author}-${skillInfo.name}`
+  return cloneResult.value?.InstalledSkills?.includes(skillId) || false
+}
+
+// 计算已安装的 Skill 数量
+const installedCount = computed(() => {
+  return cloneResult.value?.InstalledSkills?.length || 0
+})
+
+// 计算未安装的 Skill 数量
+const availableCount = computed(() => {
+  const total = cloneResult.value?.Skills?.length || 0
+  return total - installedCount.value
+})
 
 const categories = computed(() => skillStore.categories)
 
@@ -62,6 +115,10 @@ onMounted(async () => {
 onUnmounted(() => {
   // 取消注册 Wails 文件拖拽监听
   OnFileDropOff()
+  // 清除加载定时器
+  if (loadingTimer) {
+    clearTimeout(loadingTimer)
+  }
 })
 
 // === 本地安装功能 ===
@@ -228,25 +285,45 @@ async function parseAndClone() {
 
   gitLoading.value = true
   gitError.value = null
+  gitLoadingStep.value = '正在连接Git仓库...'
+
+  // 步骤切换定时器
+  loadingTimer = window.setTimeout(() => {
+    gitLoadingStep.value = '正在下载仓库内容...'
+  }, 1500)
+  loadingTimer = window.setTimeout(() => {
+    gitLoadingStep.value = '正在识别可用Skill...'
+  }, 3000)
+  loadingTimer = window.setTimeout(() => {
+    gitLoadingStep.value = '正在检查安装状态...'
+  }, 4500)
 
   try {
     const info = await App.ParseGitURL(gitUrl.value)
     urlInfo.value = info
-    gitStep.value = 'preview'
+    // 不要在这里切换 gitStep，等 CloneFromGit 完成后再切换
 
     // 使用用户输入的完整URL进行克隆（包含子路径）
     const result = await App.CloneFromGit(gitUrl.value)
     cloneResult.value = result
     tempPath.value = result.TempPath
 
+    // 克隆完成后再切换到预览状态
+    gitStep.value = 'preview'
+
+    // 清空之前的选中状态
+    selectedSkills.value = []
+    gitOptions.value = {}
+
     if (result.Skills) {
       result.Skills.forEach((_: any, index: number) => {
-        selectedSkills.value.add(index)
-        gitOptions.value.set(index, {
+        // 只为安装选项创建默认配置，但不选中
+        gitOptions.value[index] = {
           category: '',
           tags: [],
           notes: ''
-        })
+        }
+        // 不再默认选中所有 Skills
       })
     }
   } catch (e) {
@@ -254,22 +331,27 @@ async function parseAndClone() {
     gitStep.value = 'input'
   } finally {
     gitLoading.value = false
+    if (loadingTimer) {
+      clearTimeout(loadingTimer)
+      loadingTimer = null
+    }
   }
 }
 
 function toggleSkill(index: number) {
-  if (selectedSkills.value.has(index)) {
-    selectedSkills.value.delete(index)
+  const pos = selectedSkills.value.indexOf(index)
+  if (pos > -1) {
+    selectedSkills.value.splice(pos, 1)
   } else {
-    selectedSkills.value.add(index)
+    selectedSkills.value.push(index)
   }
 }
 
 function getGitOptions(index: number): skill.InstallOptions {
-  if (!gitOptions.value.has(index)) {
-    gitOptions.value.set(index, { category: '', tags: [], notes: '' })
+  if (!gitOptions.value[index]) {
+    gitOptions.value[index] = { category: '', tags: [], notes: '' }
   }
-  return gitOptions.value.get(index)!
+  return gitOptions.value[index]
 }
 
 function addGitTag(index: number, event: Event) {
@@ -292,7 +374,7 @@ function removeGitTag(skillIndex: number, tagIndex: number) {
 }
 
 async function installFromGit() {
-  if (selectedSkills.value.size === 0) {
+  if (selectedSkills.value.length === 0) {
     gitError.value = '请至少选择一个 Skill'
     return
   }
@@ -329,7 +411,7 @@ function goHome() {
   router.push('/')
 }
 
-const selectedCount = computed(() => selectedSkills.value.size)
+const selectedCount = computed(() => selectedSkills.value.length)
 </script>
 
 <template>
@@ -572,12 +654,46 @@ const selectedCount = computed(() => selectedSkills.value.size)
                             <i @click="removeLocalSkillTag(index, tagIndex)" class="fas fa-times cursor-pointer hover:text-red-400"></i>
                           </span>
                         </div>
-                        <input
-                          @keydown.enter.prevent="addLocalSkillTag(index, $event)"
-                          type="text"
-                          placeholder="输入标签后按回车"
-                          class="w-full bg-cyber-dark border border-cyber-border rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"
-                        />
+                        <!-- 标签输入框带自动补全 -->
+                        <div class="relative mb-2">
+                          <input
+                            @keydown.enter.prevent="addLocalSkillTag(index, $event)"
+                            type="text"
+                            placeholder="输入标签后按回车"
+                            list="local-tags-list"
+                            class="w-full bg-cyber-dark border border-cyber-border rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"
+                          />
+                          <datalist id="local-tags-list">
+                            <option v-for="tag in allTags" :key="tag" :value="tag">{{ tag }}</option>
+                          </datalist>
+                        </div>
+                        <!-- 常用标签选择 -->
+                        <div v-if="popularTags.length > 0" class="mb-1">
+                          <p class="text-xs text-gray-500 mb-1">常用标签：</p>
+                          <div class="flex flex-wrap gap-1">
+                            <button
+                              v-for="tag in popularTags"
+                              :key="tag"
+                              @click="() => {
+                                const options = getLocalSkillOptions(index)
+                                if (!options.tags) options.tags = []
+                                if (!options.tags.includes(tag)) {
+                                  options.tags.push(tag)
+                                }
+                              }"
+                              :disabled="getLocalSkillOptions(index).tags?.includes(tag)"
+                              :class="[
+                                'px-2 py-1 rounded-lg text-xs transition-all flex items-center gap-1',
+                                getLocalSkillOptions(index).tags?.includes(tag)
+                                  ? 'bg-cyber-accent/15 border border-cyber-accent/40 text-cyber-accent opacity-50 cursor-not-allowed'
+                                  : 'bg-cyber-panel/50 border border-cyber-border text-gray-400 hover:border-cyber-accent/30 hover:text-gray-300 cursor-pointer'
+                              ]"
+                            >
+                              <span :class="['w-1.5 h-1.5 rounded-full flex-shrink-0', getTagColor(tag)]"></span>
+                              {{ tag }}
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                     <div>
@@ -645,7 +761,18 @@ const selectedCount = computed(() => selectedSkills.value.size)
       <div v-if="activeTab === 'git'">
         <!-- Step 1: Input URL -->
         <div v-if="gitStep === 'input'" class="space-y-6">
-          <div class="glass-panel rounded-2xl p-6 border border-cyber-border">
+          <!-- 加载状态 -->
+          <div v-if="gitLoading" class="text-center py-20">
+            <div class="w-16 h-16 mx-auto mb-6 border-4 border-cyber-border border-t-purple-500 rounded-full animate-spin"></div>
+            <p class="text-gray-300 text-lg mb-2">
+              <i class="fas fa-circle-notch fa-spin mr-2 text-purple-400"></i>
+              {{ gitLoadingStep }}
+            </p>
+            <p class="text-gray-500 text-sm">请稍候，这可能需要几秒钟时间</p>
+          </div>
+
+          <!-- 输入表单 -->
+          <div v-else class="glass-panel rounded-2xl p-6 border border-cyber-border">
             <h3 class="text-lg font-semibold text-white mb-4">输入 Git 仓库地址</h3>
 
             <div class="space-y-4">
@@ -694,7 +821,15 @@ const selectedCount = computed(() => selectedSkills.value.size)
               </div>
               <div>
                 <h3 class="font-semibold text-white">{{ urlInfo?.short_ref || gitUrl }}</h3>
-                <p class="text-sm text-gray-500">发现 {{ cloneResult.Skills?.length || 0 }} 个 Skills</p>
+                <p class="text-sm text-gray-500">
+                  发现 {{ cloneResult.Skills?.length || 0 }} 个 Skills，其中 {{ installedCount }} 个已安装
+                </p>
+                <p v-if="availableCount > 0" class="text-xs text-purple-400 mt-1">
+                  请选择 {{ availableCount }} 个未安装的 Skills 进行安装
+                </p>
+                <p v-else class="text-xs text-yellow-500 mt-1">
+                  所有 Skills 已安装
+                </p>
               </div>
             </div>
           </div>
@@ -704,27 +839,37 @@ const selectedCount = computed(() => selectedSkills.value.size)
               v-for="(skillInfo, index) in cloneResult.Skills"
               :key="index"
               class="glass-panel rounded-2xl p-5 border border-cyber-border"
-              :class="{ 'border-purple-500/50': selectedSkills.has(index) }"
+              :class="{
+                'border-purple-500/50': selectedSkills.includes(index),
+                'opacity-50': isSkillInstalled(skillInfo)
+              }"
             >
               <div class="flex items-start gap-4">
                 <button
                   @click="toggleSkill(index)"
+                  :disabled="isSkillInstalled(skillInfo)"
                   :class="[
                     'w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all flex-shrink-0 mt-1',
-                    selectedSkills.has(index)
+                    selectedSkills.includes(index)
                       ? 'bg-purple-500 border-purple-500'
-                      : 'border-gray-500 hover:border-purple-500'
+                      : 'border-gray-500 hover:border-purple-500',
+                    isSkillInstalled(skillInfo) ? 'cursor-not-allowed bg-gray-700 border-gray-600' : ''
                   ]"
                 >
-                  <i v-if="selectedSkills.has(index)" class="fas fa-check text-white text-xs"></i>
+                  <i v-if="selectedSkills.includes(index)" class="fas fa-check text-white text-xs"></i>
                 </button>
 
                 <div class="flex-1">
-                  <h4 class="font-semibold text-white font-mono">{{ skillInfo.name }}</h4>
+                  <div class="flex items-center gap-2 mb-1">
+                    <h4 class="font-semibold text-white font-mono">{{ skillInfo.name }}</h4>
+                    <span v-if="isSkillInstalled(skillInfo)" class="px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-xs border border-green-500/30">
+                      已安装
+                    </span>
+                  </div>
                   <p class="text-sm text-gray-500 mb-2">{{ skillInfo.author }}</p>
                   <p class="text-sm text-gray-400">{{ skillInfo.description || '暂无描述' }}</p>
 
-                  <div v-if="selectedSkills.has(index)" class="mt-4 pt-4 border-t border-cyber-border space-y-3">
+                  <div v-if="selectedSkills.includes(index) && !isSkillInstalled(skillInfo)" class="mt-4 pt-4 border-t border-cyber-border space-y-3">
                     <!-- 分类和标签在同一行 -->
                     <div class="grid grid-cols-2 gap-3">
                       <div>
@@ -748,12 +893,46 @@ const selectedCount = computed(() => selectedSkills.value.size)
                             <i @click="removeGitTag(index, tagIndex)" class="fas fa-times cursor-pointer hover:text-red-400"></i>
                           </span>
                         </div>
-                        <input
-                          @keydown.enter.prevent="addGitTag(index, $event)"
-                          type="text"
-                          placeholder="输入标签后按回车"
-                          class="w-full bg-cyber-dark border border-cyber-border rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-purple-500"
-                        />
+                        <!-- 标签输入框带自动补全 -->
+                        <div class="relative mb-2">
+                          <input
+                            @keydown.enter.prevent="addGitTag(index, $event)"
+                            type="text"
+                            placeholder="输入标签后按回车"
+                            list="git-tags-list"
+                            class="w-full bg-cyber-dark border border-cyber-border rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-purple-500"
+                          />
+                          <datalist id="git-tags-list">
+                            <option v-for="tag in allTags" :key="tag" :value="tag">{{ tag }}</option>
+                          </datalist>
+                        </div>
+                        <!-- 常用标签选择 -->
+                        <div v-if="popularTags.length > 0" class="mb-1">
+                          <p class="text-xs text-gray-500 mb-1">常用标签：</p>
+                          <div class="flex flex-wrap gap-1">
+                            <button
+                              v-for="tag in popularTags"
+                              :key="tag"
+                              @click="() => {
+                                const options = getGitOptions(index)
+                                if (!options.tags) options.tags = []
+                                if (!options.tags.includes(tag)) {
+                                  options.tags.push(tag)
+                                }
+                              }"
+                              :disabled="getGitOptions(index).tags?.includes(tag)"
+                              :class="[
+                                'px-2 py-1 rounded-lg text-xs transition-all flex items-center gap-1',
+                                getGitOptions(index).tags?.includes(tag)
+                                  ? 'bg-cyber-accent/15 border border-cyber-accent/40 text-cyber-accent opacity-50 cursor-not-allowed'
+                                  : 'bg-cyber-panel/50 border border-cyber-border text-gray-400 hover:border-cyber-accent/30 hover:text-gray-300 cursor-pointer'
+                              ]"
+                            >
+                              <span :class="['w-1.5 h-1.5 rounded-full flex-shrink-0', getTagColor(tag)]"></span>
+                              {{ tag }}
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                     <div>

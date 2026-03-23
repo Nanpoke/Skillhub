@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -94,6 +95,7 @@ func (g *GitClient) Clone(url string, subPath string) (*CloneResult, error) {
 	if subPath != "" {
 		// 使用稀疏克隆只下载指定子路径
 		cmd := exec.Command("git", "clone", "--filter=blob:none", "--sparse", url, tempDir)
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 		output, err = cmd.CombinedOutput()
 		if err != nil {
 			os.RemoveAll(tempDir)
@@ -103,6 +105,7 @@ func (g *GitClient) Clone(url string, subPath string) (*CloneResult, error) {
 		// 设置稀疏检出路径
 		cmd = exec.Command("git", "sparse-checkout", "set", subPath)
 		cmd.Dir = tempDir
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 		output, err = cmd.CombinedOutput()
 		if err != nil {
 			os.RemoveAll(tempDir)
@@ -112,6 +115,7 @@ func (g *GitClient) Clone(url string, subPath string) (*CloneResult, error) {
 		// 拉取代码
 		cmd = exec.Command("git", "pull")
 		cmd.Dir = tempDir
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 		output, err = cmd.CombinedOutput()
 		if err != nil {
 			os.RemoveAll(tempDir)
@@ -120,6 +124,7 @@ func (g *GitClient) Clone(url string, subPath string) (*CloneResult, error) {
 	} else {
 		// 普通浅克隆整个仓库
 		cmd := exec.Command("git", "clone", "--depth", "1", url, tempDir)
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 		output, err = cmd.CombinedOutput()
 		if err != nil {
 			os.RemoveAll(tempDir)
@@ -263,6 +268,7 @@ func (g *GitClient) ParseGitURL(input string) (*GitURLInfo, error) {
 func (g *GitClient) Pull(repoPath string) error {
 	cmd := exec.Command("git", "pull")
 	cmd.Dir = repoPath
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("拉取失败: %s", string(output))
@@ -275,6 +281,7 @@ func (g *GitClient) Pull(repoPath string) error {
 // workTree: 工作目录的路径
 func (g *GitClient) PullWithGitDir(gitDir, workTree string) error {
 	cmd := exec.Command("git", "--git-dir", gitDir, "--work-tree", workTree, "pull")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("拉取失败: %s", string(output))
@@ -285,6 +292,7 @@ func (g *GitClient) PullWithGitDir(gitDir, workTree string) error {
 // GetTagWithGitDir 获取 Git tag（支持分离的 .git 目录）
 func (g *GitClient) GetTagWithGitDir(gitDir string) (string, error) {
 	cmd := exec.Command("git", "--git-dir", gitDir, "describe", "--tags", "--abbrev=0")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// 如果没有tag，返回unknown而不是报错
@@ -300,6 +308,7 @@ func (g *GitClient) GetTagWithGitDir(gitDir string) (string, error) {
 func (g *GitClient) GetRemoteURL(repoPath string) (string, error) {
 	cmd := exec.Command("git", "config", "--get", "remote.origin.url")
 	cmd.Dir = repoPath
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -355,6 +364,7 @@ func (g *GitClient) MoveGitDir(srcPath, destPath string) error {
 func (g *GitClient) GetTag(repoPath string) (string, error) {
 	cmd := exec.Command("git", "describe", "--tags", "--abbrev=0")
 	cmd.Dir = repoPath
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("获取 tag 失败: %s", string(output))
@@ -403,10 +413,13 @@ func (g *GitClient) FetchLatestRelease(owner, repo string) (*GitHubRelease, erro
 
 // FetchLatestCommitTime 从 GitHub API 获取指定路径的最新提交时间
 func (g *GitClient) FetchLatestCommitTime(owner, repo, path string) (time.Time, error) {
+	// 统一路径分隔符为正斜杠（适配Windows系统）
+	normalizedPath := filepath.ToSlash(path)
+
 	// 首先尝试最常见的两种路径，减少API调用
 	tryPaths := []string{
-		path,          // 直接路径
-		"skills/" + path, // 最常见的skills目录前缀
+		normalizedPath,          // 直接路径
+		"skills/" + normalizedPath, // 最常见的skills目录前缀
 	}
 
 	for _, tryPath := range tryPaths {

@@ -427,9 +427,10 @@ func (m *Manager) CleanupLocalTemp(tempPath string) {
 
 // GitInstallResult Git 安装结果
 type GitInstallResult struct {
-	TempPath string       // 临时目录
-	GitURL   string       // Git 仓库 URL
-	Skills   []*SkillInfo // 发现的 Skills
+	TempPath        string       // 临时目录
+	GitURL          string       // Git 仓库 URL
+	Skills          []*SkillInfo // 发现的 Skills
+	InstalledSkills []string     // 已安装的 Skill ID 列表（格式：author-skillname）
 }
 
 // CloneFromGit 从 Git 仓库克隆并扫描 Skills
@@ -479,10 +480,40 @@ func (m *Manager) CloneFromGit(url string) (*GitInstallResult, error) {
 		}
 	}
 
+	// 统一使用 Git Owner 作为 Author，确保前后端 ID 生成一致
+	for _, skillInfo := range skills {
+		skillInfo.Author = gitInfo.Owner
+	}
+
+	// 检查已安装的 Skills
+	installedSkills := []string{}
+	if len(skills) > 0 {
+		// 获取所有已安装的 Skills 列表
+		existingSkills, err := m.ListSkills()
+		if err == nil {
+			// 构建已安装 Skill ID 的集合
+			installedSet := make(map[string]bool)
+			for _, skill := range existingSkills {
+				installedSet[skill.ID] = true
+			}
+
+			// 检查每个扫描到的 Skill 是否已安装
+			for _, skillInfo := range skills {
+				// 生成标准 Skill ID（格式：author-skillname）
+				// 使用 Git URL 的作者信息，与 InstallFromGit 保持一致
+				skillID := fmt.Sprintf("%s-%s", gitInfo.Owner, skillInfo.Name)
+				if installedSet[skillID] {
+					installedSkills = append(installedSkills, skillID)
+				}
+			}
+		}
+	}
+
 	return &GitInstallResult{
-		TempPath: result.TempPath,
-		GitURL:   gitInfo.FullURL, // 返回 Git URL
-		Skills:   skills,
+		TempPath:        result.TempPath,
+		GitURL:          gitInfo.FullURL, // 返回 Git URL
+		Skills:          skills,
+		InstalledSkills: installedSkills,
 	}, nil
 }
 

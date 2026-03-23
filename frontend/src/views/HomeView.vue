@@ -270,6 +270,20 @@ const enabledTools = computed(() => skillStore.allEnabledTools)
 const managedTools = computed(() => skillStore.allEnabledTools)
 
 const categories = computed(() => skillStore.categories)
+
+// 计算常用标签（按使用频率排序，取前15个）
+const popularTags = computed(() => {
+  const tagCount: Record<string, number> = {}
+  skillStore.skills.forEach(s => {
+    s.tags?.forEach(t => {
+      tagCount[t] = (tagCount[t] || 0) + 1
+    })
+  })
+  return Object.entries(tagCount)
+    .sort((a, b) => b[1] - a[1])
+    .map(([tag]) => tag)
+    .slice(0, 15)
+})
 </script>
 
 <template>
@@ -404,36 +418,8 @@ const categories = computed(() => skillStore.categories)
             </ul>
           </div>
 
-          <!-- Tags -->
-          <div class="mb-6" v-if="skillStore.allTags.length > 0">
-            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-3">标签</p>
-            <div class="flex flex-wrap gap-1.5 px-2">
-              <button
-                v-for="tag in skillStore.allTags.slice(0, 15)"
-                :key="tag"
-                @click="skillStore.toggleTag(tag)"
-                :class="[
-                  'flex items-center gap-1 px-1.5 py-1 rounded-[10px] text-xs transition-all',
-                  skillStore.selectedTags.includes(tag)
-                    ? 'bg-cyber-accent/15 border border-cyber-accent/40 text-cyber-accent'
-                    : 'bg-cyber-panel/50 border border-cyber-border text-gray-400 hover:border-cyber-accent/30 hover:text-gray-300'
-                ]"
-              >
-                <span :class="['w-1.5 h-1.5 rounded-full flex-shrink-0', getTagColor(tag)]"></span>
-                <span>{{ tag }}</span>
-              </button>
-            </div>
-            <button
-              v-if="skillStore.selectedTags.length > 0"
-              @click="skillStore.clearTagFilter()"
-              class="mt-2 text-xs text-gray-500 hover:text-cyber-accent px-3"
-            >
-              清除筛选
-            </button>
-          </div>
-
           <!-- Tool Filter -->
-          <div>
+          <div class="mb-6">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-3">工具筛选</p>
             <ul class="space-y-2">
               <li v-for="tool in managedTools" :key="tool.id">
@@ -451,6 +437,34 @@ const categories = computed(() => skillStore.categories)
             <button
               v-if="skillStore.selectedTools.length > 0"
               @click="skillStore.clearToolFilter()"
+              class="mt-2 text-xs text-gray-500 hover:text-cyber-accent px-3"
+            >
+              清除筛选
+            </button>
+          </div>
+
+          <!-- Tags -->
+          <div v-if="skillStore.allTags.length > 0">
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-3">标签</p>
+            <div class="flex flex-wrap gap-1.5 px-2">
+              <button
+                v-for="tag in skillStore.allTags"
+                :key="tag"
+                @click="skillStore.toggleTag(tag)"
+                :class="[
+                  'flex items-center gap-1 px-1.5 py-1 rounded-[10px] text-xs transition-all',
+                  skillStore.selectedTags.includes(tag)
+                    ? 'bg-cyber-accent/15 border border-cyber-accent/40 text-cyber-accent'
+                    : 'bg-cyber-panel/50 border border-cyber-border text-gray-400 hover:border-cyber-accent/30 hover:text-gray-300'
+                ]"
+              >
+                <span :class="['w-1.5 h-1.5 rounded-full flex-shrink-0', getTagColor(tag)]"></span>
+                <span>{{ tag }}</span>
+              </button>
+            </div>
+            <button
+              v-if="skillStore.selectedTags.length > 0"
+              @click="skillStore.clearTagFilter()"
               class="mt-2 text-xs text-gray-500 hover:text-cyber-accent px-3"
             >
               清除筛选
@@ -672,7 +686,7 @@ const categories = computed(() => skillStore.categories)
                             ></i>
                           </span>
                         </div>
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 mb-2">
                           <input
                             v-model="editingData[skill.id].newTag"
                             @keydown.enter.prevent="addTag(skill.id)"
@@ -693,13 +707,77 @@ const categories = computed(() => skillStore.categories)
                             <i class="fas fa-plus mr-1"></i>添加
                           </button>
                         </div>
+                        <!-- 常用标签选择 -->
+                        <div v-if="popularTags.length > 0" class="mb-1">
+                          <p class="text-xs text-gray-500 mb-1">常用标签：</p>
+                          <div class="flex flex-wrap gap-1">
+                            <button
+                              v-for="tag in popularTags"
+                              :key="tag"
+                              @click="() => {
+                                const data = editingData[skill.id]
+                                if (data && !data.tags?.includes(tag)) {
+                                  if (!data.tags) data.tags = []
+                                  data.tags.push(tag)
+                                }
+                              }"
+                              :disabled="editingData[skill.id]?.tags?.includes(tag)"
+                              :class="[
+                                'px-2 py-1 rounded-lg text-xs transition-all flex items-center gap-1',
+                                editingData[skill.id]?.tags?.includes(tag)
+                                  ? 'bg-cyber-accent/15 border border-cyber-accent/40 text-cyber-accent opacity-50 cursor-not-allowed'
+                                  : 'bg-cyber-panel/50 border border-cyber-border text-gray-400 hover:border-cyber-accent/30 hover:text-gray-300 cursor-pointer'
+                              ]"
+                            >
+                              <span :class="['w-1.5 h-1.5 rounded-full flex-shrink-0', getTagColor(tag)]"></span>
+                              {{ tag }}
+                            </button>
+                          </div>
+                        </div>
                       </div>
+                    </div>
+                  </div>
+
+                  <!-- Tool Sync + Notes -->
+                  <div class="space-y-6">
+                    <!-- Tool Sync -->
+                    <div>
+                      <h4 class="text-sm font-semibold text-white mb-3 font-mono">
+                        <i class="fas fa-sync mr-2 text-cyber-accent2"></i>同步到工具
+                      </h4>
+                      <div class="grid grid-cols-2 gap-2">
+                        <div
+                          v-for="tool in managedTools"
+                          :key="tool.id"
+                          class="flex items-center justify-between p-2 rounded-lg bg-cyber-dark border border-cyber-border"
+                        >
+                          <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-orange-400" v-if="tool.id === 'claude-code'">C</span>
+                            <span class="text-xs font-bold text-blue-400" v-else-if="tool.id === 'opencode'">O</span>
+                            <span class="text-xs font-bold text-purple-400" v-else-if="tool.id === 'cursor'">Cu</span>
+                            <span class="text-xs font-bold text-green-400" v-else-if="tool.id === 'codebuddy'">CB</span>
+                            <span class="text-xs font-bold text-pink-400" v-else>T</span>
+                            <span class="text-xs">{{ tool.name }}</span>
+                          </div>
+                          <button
+                            @click.stop="handleToggleTool(skill.id, tool.id)"
+                            :class="[
+                              'toggle-switch',
+                              { 'active': skill.tools_enabled?.[tool.id] }
+                            ]"
+                            :disabled="!tool.is_installed"
+                          ></button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="space-y-3">
                       <div>
                         <label class="text-xs text-gray-500 mb-1 block">备注</label>
                         <textarea
                           v-model="editingData[skill.id].notes"
-                          class="w-full bg-cyber-dark border border-cyber-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyber-accent resize-none"
-                          rows="2"
+                          class="w-full bg-cyber-dark border border-cyber-border rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-cyber-accent resize-none min-h-[120px]"
                           placeholder="添加备注..."
                         ></textarea>
                       </div>
@@ -715,37 +793,6 @@ const categories = computed(() => skillStore.categories)
                       >
                         <i class="fas fa-save mr-2"></i>保存更改
                       </button>
-                    </div>
-                  </div>
-
-                  <!-- Tool Sync -->
-                  <div>
-                    <h4 class="text-sm font-semibold text-white mb-3 font-mono">
-                      <i class="fas fa-sync mr-2 text-cyber-accent2"></i>同步到工具
-                    </h4>
-                    <div class="grid grid-cols-2 gap-2">
-                      <div
-                        v-for="tool in managedTools"
-                        :key="tool.id"
-                        class="flex items-center justify-between p-2 rounded-lg bg-cyber-dark border border-cyber-border"
-                      >
-                        <div class="flex items-center gap-2">
-                          <span class="text-xs font-bold text-orange-400" v-if="tool.id === 'claude-code'">C</span>
-                          <span class="text-xs font-bold text-blue-400" v-else-if="tool.id === 'opencode'">O</span>
-                          <span class="text-xs font-bold text-purple-400" v-else-if="tool.id === 'cursor'">Cu</span>
-                          <span class="text-xs font-bold text-green-400" v-else-if="tool.id === 'codebuddy'">CB</span>
-                          <span class="text-xs font-bold text-pink-400" v-else>T</span>
-                          <span class="text-xs">{{ tool.name }}</span>
-                        </div>
-                        <button
-                          @click.stop="handleToggleTool(skill.id, tool.id)"
-                          :class="[
-                            'toggle-switch',
-                            { 'active': skill.tools_enabled?.[tool.id] }
-                          ]"
-                          :disabled="!tool.is_installed"
-                        ></button>
-                      </div>
                     </div>
                   </div>
                 </div>

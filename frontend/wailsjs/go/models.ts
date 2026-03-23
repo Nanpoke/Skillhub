@@ -288,6 +288,7 @@ export namespace skill {
 	    TempPath: string;
 	    GitURL: string;
 	    Skills: SkillInfo[];
+	    InstalledSkills: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new GitInstallResult(source);
@@ -298,6 +299,7 @@ export namespace skill {
 	        this.TempPath = source["TempPath"];
 	        this.GitURL = source["GitURL"];
 	        this.Skills = this.convertValues(source["Skills"], SkillInfo);
+	        this.InstalledSkills = source["InstalledSkills"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
