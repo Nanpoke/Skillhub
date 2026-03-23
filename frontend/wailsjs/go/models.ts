@@ -215,6 +215,7 @@ export namespace skill {
 	    update_frequency: string;
 	    first_run: boolean;
 	    custom_categories: string[];
+	    github_token: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new AppSettings(source);
@@ -228,6 +229,7 @@ export namespace skill {
 	        this.update_frequency = source["update_frequency"];
 	        this.first_run = source["first_run"];
 	        this.custom_categories = source["custom_categories"];
+	        this.github_token = source["github_token"];
 	    }
 	}
 	export class CategoryInfo {

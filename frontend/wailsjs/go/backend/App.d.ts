@@ -35,6 +35,8 @@ export function GetDetectedTools():Promise<Array<skill.ToolInfo>>;
 
 export function GetExportInfo():Promise<backend.ExportInfo>;
 
+export function GetLastCheckTime():Promise<string>;
+
 export function GetMigrationInfo(arg1:string):Promise<backend.PathMigrationInfo>;
 
 export function GetOperationLogs():Promise<Array<skill.OperationLog>>;
@@ -77,6 +79,8 @@ export function RemoveCustomTool(arg1:string):Promise<void>;
 
 export function ResetAllData():Promise<void>;
 
+export function RestartUpdateScheduler():Promise<void>;
+
 export function SaveSettings(arg1:skill.AppSettings):Promise<void>;
 
 export function ScanLocalPath(arg1:string):Promise<skill.LocalScanResult>;
@@ -94,6 +98,10 @@ export function SetSkillHubPath(arg1:string):Promise<void>;
 export function SetSkillHubPathWithMigration(arg1:string):Promise<void>;
 
 export function SetUpdateFrequency(arg1:string):Promise<void>;
+
+export function StartUpdateScheduler():Promise<void>;
+
+export function StopUpdateScheduler():Promise<void>;
 
 export function ToggleSkill(arg1:string,arg2:string):Promise<boolean>;
 

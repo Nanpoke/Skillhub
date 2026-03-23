@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // GitHubRelease GitHub Release API 响应
@@ -18,12 +19,25 @@ type GitHubRelease struct {
 	HTMLURL string `json:"html_url"`
 }
 
+// GitHubCommit GitHub Commit API 响应
+type GitHubCommit struct {
+	Commit struct {
+		Committer struct {
+			Date time.Time `json:"date"`
+		} `json:"committer"`
+	} `json:"commit"`
+}
+
 // GitClient Git 操作客户端
-type GitClient struct{}
+type GitClient struct {
+	GitHubToken string // GitHub API Token，可选，用于解除限流
+}
 
 // NewGitClient 创建 Git 客户端
-func NewGitClient() *GitClient {
-	return &GitClient{}
+func NewGitClient(githubToken string) *GitClient {
+	return &GitClient{
+		GitHubToken: githubToken,
+	}
 }
 
 // IsGitInstalled 检查 Git 是否已安装
@@ -59,8 +73,8 @@ func ValidateGitURL(url string) error {
 	return fmt.Errorf("URL 必须来自 github.com、gitlab.com 或 gitee.com")
 }
 
-// Clone 浅克隆仓库到临时目录
-func (g *GitClient) Clone(url string) (*CloneResult, error) {
+// Clone 浅克隆仓库到临时目录，支持子路径稀疏克隆
+func (g *GitClient) Clone(url string, subPath string) (*CloneResult, error) {
 	if !g.IsGitInstalled() {
 		return nil, fmt.Errorf("Git 未安装，请先安装 Git")
 	}
@@ -76,16 +90,45 @@ func (g *GitClient) Clone(url string) (*CloneResult, error) {
 		return nil, fmt.Errorf("创建临时目录失败: %w", err)
 	}
 
-	// 执行 git clone --depth 1
-	cmd := exec.Command("git", "clone", "--depth", "1", url, tempDir)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		os.RemoveAll(tempDir)
-		return nil, fmt.Errorf("克隆失败: %s\n%s", err.Error(), string(output))
+	var output []byte
+	if subPath != "" {
+		// 使用稀疏克隆只下载指定子路径
+		cmd := exec.Command("git", "clone", "--filter=blob:none", "--sparse", url, tempDir)
+		output, err = cmd.CombinedOutput()
+		if err != nil {
+			os.RemoveAll(tempDir)
+			return nil, fmt.Errorf("稀疏克隆失败: %s\n%s", err.Error(), string(output))
+		}
+
+		// 设置稀疏检出路径
+		cmd = exec.Command("git", "sparse-checkout", "set", subPath)
+		cmd.Dir = tempDir
+		output, err = cmd.CombinedOutput()
+		if err != nil {
+			os.RemoveAll(tempDir)
+			return nil, fmt.Errorf("设置稀疏检出路径失败: %s\n%s", err.Error(), string(output))
+		}
+
+		// 拉取代码
+		cmd = exec.Command("git", "pull")
+		cmd.Dir = tempDir
+		output, err = cmd.CombinedOutput()
+		if err != nil {
+			os.RemoveAll(tempDir)
+			return nil, fmt.Errorf("拉取代码失败: %s\n%s", err.Error(), string(output))
+		}
+	} else {
+		// 普通浅克隆整个仓库
+		cmd := exec.Command("git", "clone", "--depth", "1", url, tempDir)
+		output, err = cmd.CombinedOutput()
+		if err != nil {
+			os.RemoveAll(tempDir)
+			return nil, fmt.Errorf("克隆失败: %s\n%s", err.Error(), string(output))
+		}
 	}
 
-	// 扫描 Skill 目录
-	skills := g.ScanSkills(tempDir)
+	// 扫描 Skill 目录（传入子路径进行过滤）
+	skills := g.ScanSkills(tempDir, subPath)
 
 	return &CloneResult{
 		TempPath: tempDir,
@@ -93,8 +136,8 @@ func (g *GitClient) Clone(url string) (*CloneResult, error) {
 	}, nil
 }
 
-// ScanSkills 扫描目录中的 Skills
-func (g *GitClient) ScanSkills(dir string) []string {
+// ScanSkills 扫描目录中的 Skills，支持子路径过滤
+func (g *GitClient) ScanSkills(dir string, subPath string) []string {
 	var skills []string
 
 	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -108,11 +151,34 @@ func (g *GitClient) ScanSkills(dir string) []string {
 			skillDir := filepath.Dir(path)
 			relPath, _ := filepath.Rel(dir, skillDir)
 
-			if relPath == "." {
-				// 根目录就是 Skill
-				skills = append(skills, "")
+			// 如果指定了子路径，只返回该子路径下的Skill
+			if subPath != "" {
+				// 标准化路径分隔符
+				normalizedRelPath := filepath.ToSlash(relPath)
+				normalizedSubPath := filepath.ToSlash(subPath)
+
+				// 检查是否在子路径下（精确匹配或以子路径+斜杠开头，避免前缀误匹配）
+				pathMatches := normalizedRelPath == normalizedSubPath ||
+					strings.HasPrefix(normalizedRelPath, normalizedSubPath + "/")
+
+				if !pathMatches {
+					return nil
+				}
+
+				// 始终返回相对于仓库根目录的完整路径
+				if relPath == "." {
+					skills = append(skills, "")
+				} else {
+					skills = append(skills, relPath)
+				}
 			} else {
-				skills = append(skills, relPath)
+				// 没有子路径过滤，返回所有相对路径
+				if relPath == "." {
+					// 根目录就是 Skill
+					skills = append(skills, "")
+				} else {
+					skills = append(skills, relPath)
+				}
 			}
 		}
 
@@ -221,6 +287,10 @@ func (g *GitClient) GetTagWithGitDir(gitDir string) (string, error) {
 	cmd := exec.Command("git", "--git-dir", gitDir, "describe", "--tags", "--abbrev=0")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		// 如果没有tag，返回unknown而不是报错
+		if strings.Contains(string(output), "No names found") {
+			return "unknown", nil
+		}
 		return "", fmt.Errorf("获取 tag 失败: %s", string(output))
 	}
 	return strings.TrimSpace(string(output)), nil
@@ -296,7 +366,19 @@ func (g *GitClient) GetTag(repoPath string) (string, error) {
 func (g *GitClient) FetchLatestRelease(owner, repo string) (*GitHubRelease, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", owner, repo)
 
-	resp, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("创建请求失败: %w", err)
+	}
+
+	// 如果配置了GitHub Token，添加到请求头
+	if g.GitHubToken != "" {
+		req.Header.Set("Authorization", "token "+g.GitHubToken)
+	}
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("请求 GitHub API 失败: %w", err)
 	}
@@ -317,6 +399,60 @@ func (g *GitClient) FetchLatestRelease(owner, repo string) (*GitHubRelease, erro
 	}
 
 	return &release, nil
+}
+
+// FetchLatestCommitTime 从 GitHub API 获取指定路径的最新提交时间
+func (g *GitClient) FetchLatestCommitTime(owner, repo, path string) (time.Time, error) {
+	// 首先尝试最常见的两种路径，减少API调用
+	tryPaths := []string{
+		path,          // 直接路径
+		"skills/" + path, // 最常见的skills目录前缀
+	}
+
+	for _, tryPath := range tryPaths {
+		url := fmt.Sprintf("https://api.github.com/repos/%s/%s/commits?path=%s&per_page=1", owner, repo, tryPath)
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("创建请求失败: %w", err)
+		}
+
+		// 如果配置了GitHub Token，添加到请求头
+		if g.GitHubToken != "" {
+			req.Header.Set("Authorization", "token "+g.GitHubToken)
+		}
+		req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("请求 GitHub API 失败: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == 403 || resp.StatusCode == 429 {
+			return time.Time{}, fmt.Errorf("GitHub API 限流，请稍后再试或配置 GitHub Token")
+		}
+
+		if resp.StatusCode == 200 {
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				continue
+			}
+
+			var commits []GitHubCommit
+			if err := json.Unmarshal(body, &commits); err != nil {
+				continue
+			}
+
+			if len(commits) > 0 {
+				return commits[0].Commit.Committer.Date, nil
+			}
+		}
+	}
+
+	// 所有尝试都失败
+	return time.Time{}, fmt.Errorf("未找到提交记录")
 }
 
 // CompareVersions 比较两个版本号

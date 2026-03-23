@@ -66,6 +66,10 @@ export function GetExportInfo() {
   return window['go']['backend']['App']['GetExportInfo']();
 }
 
+export function GetLastCheckTime() {
+  return window['go']['backend']['App']['GetLastCheckTime']();
+}
+
 export function GetMigrationInfo(arg1) {
   return window['go']['backend']['App']['GetMigrationInfo'](arg1);
 }
@@ -150,6 +154,10 @@ export function ResetAllData() {
   return window['go']['backend']['App']['ResetAllData']();
 }
 
+export function RestartUpdateScheduler() {
+  return window['go']['backend']['App']['RestartUpdateScheduler']();
+}
+
 export function SaveSettings(arg1) {
   return window['go']['backend']['App']['SaveSettings'](arg1);
 }
@@ -184,6 +192,14 @@ export function SetSkillHubPathWithMigration(arg1) {
 
 export function SetUpdateFrequency(arg1) {
   return window['go']['backend']['App']['SetUpdateFrequency'](arg1);
+}
+
+export function StartUpdateScheduler() {
+  return window['go']['backend']['App']['StartUpdateScheduler']();
+}
+
+export function StopUpdateScheduler() {
+  return window['go']['backend']['App']['StopUpdateScheduler']();
 }
 
 export function ToggleSkill(arg1, arg2) {

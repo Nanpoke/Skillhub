@@ -23,6 +23,9 @@ export const useSkillStore = defineStore('skills', () => {
   const searchQuery = ref('')
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+  const filterUpdateOnly = ref(false) // 只显示可更新的skill
+  const batchUpdating = ref(false) // 批量更新状态
+  const ignoredUpdates = ref<string[]>([]) // 被忽略更新的Skill ID列表
 
   // 合并后的分类列表（用于侧边栏显示）
   const categories = computed(() => [
@@ -89,6 +92,11 @@ export const useSkillStore = defineStore('skills', () => {
       )
     }
 
+    // Filter by update status
+    if (filterUpdateOnly.value) {
+      result = result.filter(s => s.has_update && !ignoredUpdates.value.includes(s.id))
+    }
+
     return result
   })
 
@@ -98,6 +106,10 @@ export const useSkillStore = defineStore('skills', () => {
     skills.value.filter(s =>
       s.tools_enabled && Object.values(s.tools_enabled).some(v => v)
     ).length
+  )
+
+  const updatableSkillsCount = computed(() =>
+    skills.value.filter(s => s.has_update && !ignoredUpdates.value.includes(s.id)).length
   )
 
   // 合并后的已启用工具列表（预置 + 自定义）
@@ -197,8 +209,12 @@ export const useSkillStore = defineStore('skills', () => {
   async function updateSkill(skillId: string) {
     try {
       await App.UpdateSingleSkill(skillId)
-      // Reload skills to get updated state
-      await loadSkills()
+      // 直接更新本地状态，避免全量刷新
+      const skill = skills.value.find(s => s.id === skillId)
+      if (skill) {
+        skill.has_update = false
+        skill.updated_at = new Date().toISOString()
+      }
     } catch (e) {
       console.error('Failed to update skill:', e)
       throw e
@@ -278,6 +294,43 @@ export const useSkillStore = defineStore('skills', () => {
     }
   }
 
+  // 批量更新所有可更新的Skill
+  async function batchUpdateAll(): Promise<{ success: number; failed: number }> {
+    batchUpdating.value = true
+    const updatableSkills = skills.value.filter(s => s.has_update && !ignoredUpdates.value.includes(s.id))
+    let success = 0
+    let failed = 0
+
+    try {
+      for (const skill of updatableSkills) {
+        try {
+          await App.UpdateSingleSkill(skill.id)
+          // 更新本地状态
+          skill.has_update = false
+          skill.updated_at = new Date().toISOString()
+          success++
+        } catch (e) {
+          console.error(`Failed to update ${skill.id}:`, e)
+          failed++
+        }
+      }
+    } finally {
+      batchUpdating.value = false
+    }
+
+    return { success, failed }
+  }
+
+  // 切换更新忽略状态
+  function toggleIgnoreUpdate(skillId: string) {
+    const index = ignoredUpdates.value.indexOf(skillId)
+    if (index === -1) {
+      ignoredUpdates.value.push(skillId)
+    } else {
+      ignoredUpdates.value.splice(index, 1)
+    }
+  }
+
   return {
     skills,
     tools,
@@ -294,7 +347,11 @@ export const useSkillStore = defineStore('skills', () => {
     filteredSkills,
     totalSkills,
     enabledSkills,
+    updatableSkillsCount,
+    filterUpdateOnly,
     allEnabledTools,
+    batchUpdating,
+    ignoredUpdates,
     loadSkills,
     loadTools,
     loadCustomTools,
@@ -310,6 +367,8 @@ export const useSkillStore = defineStore('skills', () => {
     clearToolFilter,
     loadCategories,
     addCategory,
-    deleteCategory
+    deleteCategory,
+    batchUpdateAll,
+    toggleIgnoreUpdate
   }
 })

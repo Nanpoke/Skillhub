@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, inject } from 'vue'
+import { ref, onMounted, onUnmounted, computed, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSettingsStore } from '../stores/settings'
 import { useSkillStore } from '../stores/skills'
 import * as App from '../../wailsjs/go/backend/App'
+import { EventsOn } from '../../wailsjs/runtime/runtime'
 
 const router = useRouter()
 const settingsStore = useSettingsStore()
@@ -20,6 +21,8 @@ const checkingUpdate = ref(false)
 // 更新设置相关
 const autoUpdateCheck = ref(false)
 const updateFrequency = ref<'startup' | 'daily' | 'weekly'>('daily')
+const lastCheckTime = ref<string>('')
+const githubToken = ref('')
 
 // 自定义工具模态框
 const showAddToolModal = ref(false)
@@ -161,6 +164,13 @@ async function loadUpdateSettings() {
     const freq = await App.GetUpdateFrequency()
     updateFrequency.value = (freq as 'startup' | 'daily' | 'weekly') || 'daily'
     autoUpdateCheck.value = freq !== 'disabled'
+
+    // 获取上次检查时间
+    lastCheckTime.value = await App.GetLastCheckTime()
+
+    // 获取GitHub Token
+    const settings = await App.GetSettings()
+    githubToken.value = settings.github_token || ''
   } catch (e) {
     console.error('Failed to load update settings:', e)
   }
@@ -175,6 +185,23 @@ async function toggleAutoUpdate() {
     }
   } catch (e) {
     console.error('Failed to toggle auto update:', e)
+  }
+}
+
+// 保存GitHub Token
+async function saveGitHubToken() {
+  try {
+    const settings = await App.GetSettings()
+    settings.github_token = githubToken.value.trim()
+    await App.SaveSettings(settings)
+    if (showNotification) {
+      showNotification?.(githubToken.value ? 'GitHub Token 已保存' : 'GitHub Token 已清除', 'success')
+    }
+  } catch (e) {
+    console.error('Failed to save GitHub Token:', e)
+    if (showNotification) {
+      showNotification?.(`保存失败: ${e}`, 'error')
+    }
   }
 }
 
@@ -445,6 +472,15 @@ async function deleteCategory(name: string) {
     showNotification?.('删除分类失败: ' + e, 'error')
   }
 }
+
+// 监听更新完成事件，刷新上次检查时间
+EventsOn('updates:completed', async () => {
+  try {
+    lastCheckTime.value = await App.GetLastCheckTime()
+  } catch (e) {
+    console.error('Failed to refresh last check time:', e)
+  }
+})
 </script>
 
 <template>
@@ -626,11 +662,11 @@ async function deleteCategory(name: string) {
         <div class="glass-panel rounded-2xl p-6 border border-cyber-border">
           <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-3">
             <i class="fas fa-sync text-xl text-cyber-accent2"></i>
-            检查SKill更新
+            检查Skill更新
           </h2>
           <div class="space-y-4">
             <div class="flex items-center justify-between">
-              <label class="text-sm text-gray-400 block mb-3">更新频率</label>
+              <label class="text-sm text-gray-400 block mb-3">自动检查更新</label>
               <button
                 @click="autoUpdateCheck = !autoUpdateCheck; toggleAutoUpdate()"
                 :class="[
@@ -640,18 +676,47 @@ async function deleteCategory(name: string) {
                 title="启用/禁用自动检查更新"
               ></button>
             </div>
-            <div v-show="autoUpdateCheck" class="flex gap-3">
-              <button
-                v-for="freq in updateFrequencies"
-                :key="freq.value"
-                @click="setUpdateFrequency(freq.value as 'startup' | 'daily' | 'weekly')"
-                :class="[
-                  'btn-frequency',
-                  updateFrequency === freq.value ? 'active' : ''
-                ]"
-              >
-                {{ freq.label }}
-              </button>
+            <div v-show="autoUpdateCheck" class="space-y-3">
+              <p class="text-sm text-gray-400">更新频率</p>
+              <div class="flex gap-3">
+                <button
+                  v-for="freq in updateFrequencies"
+                  :key="freq.value"
+                  @click="setUpdateFrequency(freq.value as 'startup' | 'daily' | 'weekly')"
+                  :class="[
+                    'btn-frequency',
+                    updateFrequency === freq.value ? 'active' : ''
+                  ]"
+                >
+                  {{ freq.label }}
+                </button>
+              </div>
+              <p v-if="lastCheckTime" class="text-xs text-gray-500">
+                上次检查：{{ lastCheckTime }}
+              </p>
+
+              <!-- GitHub Token 配置 -->
+              <div class="pt-4 border-t border-cyber-border">
+                <label class="text-sm text-gray-400 block mb-3">GitHub Token (可选，解除API限流)</label>
+                <div class="flex gap-2">
+                  <input
+                    v-model="githubToken"
+                    type="password"
+                    placeholder="ghp_xxxxxxxxxxxx"
+                    class="flex-1 bg-cyber-dark border border-cyber-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyber-accent"
+                  />
+                  <button
+                    @click="saveGitHubToken"
+                    class="px-4 py-2 rounded-lg text-sm bg-cyber-accent/10 border border-cyber-accent/30 text-cyber-accent hover:bg-cyber-accent/20 transition-all"
+                  >
+                    保存
+                  </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">
+                  用于解除GitHub API限流，获取Token请访问
+                  <a href="https://github.com/settings/tokens" target="_blank" class="text-cyber-accent hover:underline">GitHub Settings</a>，仅需要勾选public_repo权限
+                </p>
+              </div>
             </div>
           </div>
         </div>

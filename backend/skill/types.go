@@ -41,6 +41,7 @@ type Metadata struct {
 	InstalledAt  time.Time   `json:"installed_at"`
 	UpdatedAt    time.Time   `json:"updated_at"`
 	GitVersion   string      `json:"git_version"` // 当前 Git 版本（tag）
+	SubPath      string      `json:"sub_path"`    // Skill 在 Git 仓库中的子路径
 	HasUpdate    bool        `json:"has_update"`  // 是否有更新可用
 }
 
@@ -82,6 +83,7 @@ type AppSettings struct {
 	UpdateFrequency  string   `json:"update_frequency"`
 	FirstRun         bool     `json:"first_run"`
 	CustomCategories []string `json:"custom_categories"` // 用户自定义分类
+	GitHubToken      string   `json:"github_token"`      // GitHub API Token，用于解除API限流
 }
 
 // CategoryInfo 分类信息

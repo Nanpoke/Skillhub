@@ -103,7 +103,7 @@ func NewTraeAdapter() *TraeAdapter {
 
 func getTraeSkillsPath() string {
 	home := getHomeDir()
-	return filepath.Join(home, ".trae", "skills")
+	return filepath.Join(home, ".trae-cn", "skills")
 }
 
 // getHomeDir 跨平台获取用户主目录

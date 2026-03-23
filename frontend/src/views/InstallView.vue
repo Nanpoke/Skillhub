@@ -234,7 +234,8 @@ async function parseAndClone() {
     urlInfo.value = info
     gitStep.value = 'preview'
 
-    const result = await App.CloneFromGit(info.full_url)
+    // 使用用户输入的完整URL进行克隆（包含子路径）
+    const result = await App.CloneFromGit(gitUrl.value)
     cloneResult.value = result
     tempPath.value = result.TempPath
 

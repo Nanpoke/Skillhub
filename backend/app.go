@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -21,6 +22,13 @@ type App struct {
 	ctx      context.Context
 	basePath string           // 添加 basePath 字段以跟踪当前存储路径
 	manager  *skill.Manager
+
+	// 更新调度器相关
+	updateTimer      *time.Timer      // 定时器
+	updateTicker     *time.Ticker     // 循环定时器
+	updateCancel     func()           // 取消函数
+	updateMu        sync.Mutex        // 保护更新状态的互斥锁
+	lastCheckTime   time.Time        // 上次检查时间
 }
 
 // NewApp 创建新的应用实例
@@ -66,6 +74,9 @@ func (a *App) Startup(ctx context.Context) {
 
 	// 4. 清理旧日志
 	a.manager.GetStorage().CleanOldLogs()
+
+	// 5. 启动更新调度器
+	a.StartUpdateScheduler()
 }
 
 // GetDefaultSkillHubPath 获取默认 SkillHub 路径
@@ -433,7 +444,12 @@ func (a *App) SetUpdateFrequency(frequency string) error {
 		return err
 	}
 	settings.UpdateFrequency = frequency
-	return a.SaveSettings(settings)
+	if err := a.SaveSettings(settings); err != nil {
+		return err
+	}
+	// 重启更新调度器以应用新配置
+	a.RestartUpdateScheduler()
+	return nil
 }
 
 // SaveSettings 保存应用设置
@@ -1479,4 +1495,116 @@ func (a *App) AddCategory(name string) error {
 // 返回使用该分类的 Skill ID 列表
 func (a *App) DeleteCategory(name string) ([]string, error) {
 	return a.manager.DeleteCategory(name)
+}
+
+// === 更新调度器相关方法 ===
+
+// StartUpdateScheduler 根据配置启动更新调度器
+func (a *App) StartUpdateScheduler() {
+	a.updateMu.Lock()
+	defer a.updateMu.Unlock()
+
+	// 先停止现有的调度器
+	a.stopUpdateSchedulerInternal()
+
+	// 获取更新频率设置
+	frequency := a.GetUpdateFrequency()
+
+	// 如果禁用，不启动调度器
+	if frequency == "disabled" {
+		return
+	}
+
+	switch frequency {
+	case "startup":
+		// 启动时立即检查一次（异步）
+		go a.performUpdateCheck()
+	case "daily":
+		// 每24小时检查一次
+		a.updateTicker = time.NewTicker(24 * time.Hour)
+		go func() {
+			for range a.updateTicker.C {
+				a.performUpdateCheck()
+			}
+		}()
+	case "weekly":
+		// 每7天检查一次
+		a.updateTicker = time.NewTicker(7 * 24 * time.Hour)
+		go func() {
+			for range a.updateTicker.C {
+				a.performUpdateCheck()
+			}
+		}()
+	}
+}
+
+// performUpdateCheck 执行更新检查并发送事件
+func (a *App) performUpdateCheck() {
+	fmt.Println("🔄 开始执行更新检查...")
+
+	// 发送开始事件
+	runtime.EventsEmit(a.ctx, "updates:started", nil)
+
+	// 执行检查
+	updateInfo, err := a.CheckForUpdates()
+
+	a.updateMu.Lock()
+	a.lastCheckTime = time.Now()
+	a.updateMu.Unlock()
+
+	if err != nil {
+		fmt.Printf("❌ 更新检查失败: %v\n", err)
+		// 发送失败事件
+		runtime.EventsEmit(a.ctx, "updates:failed", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	fmt.Printf("✅ 更新检查完成: 发现 %d 个更新\n", updateInfo.UpdateCount)
+
+	// 发送完成事件
+	runtime.EventsEmit(a.ctx, "updates:completed", map[string]interface{}{
+		"update_count":      updateInfo.UpdateCount,
+		"skills_with_update": updateInfo.SkillsWithUpdate,
+	})
+}
+
+// StopUpdateScheduler 停止更新调度器
+func (a *App) StopUpdateScheduler() {
+	a.updateMu.Lock()
+	defer a.updateMu.Unlock()
+	a.stopUpdateSchedulerInternal()
+}
+
+// stopUpdateSchedulerInternal 内部停止方法（需持有锁）
+func (a *App) stopUpdateSchedulerInternal() {
+	if a.updateTimer != nil {
+		a.updateTimer.Stop()
+		a.updateTimer = nil
+	}
+	if a.updateTicker != nil {
+		a.updateTicker.Stop()
+		a.updateTicker = nil
+	}
+	if a.updateCancel != nil {
+		a.updateCancel()
+		a.updateCancel = nil
+	}
+}
+
+// RestartUpdateScheduler 重启调度器（配置变更时调用）
+func (a *App) RestartUpdateScheduler() {
+	a.StartUpdateScheduler()
+}
+
+// GetLastCheckTime 获取上次检查时间
+func (a *App) GetLastCheckTime() string {
+	a.updateMu.Lock()
+	defer a.updateMu.Unlock()
+
+	if a.lastCheckTime.IsZero() {
+		return ""
+	}
+	return a.lastCheckTime.Format("2006-01-02 15:04:05")
 }

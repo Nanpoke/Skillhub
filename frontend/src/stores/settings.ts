@@ -47,7 +47,8 @@ export const useSettingsStore = defineStore('settings', () => {
         auto_update_check: autoUpdateCheck.value,
         update_frequency: updateFrequency.value,
         first_run: isFirstRun.value,
-        custom_categories: customCategories.value
+        custom_categories: customCategories.value,
+        github_token: ''
       }
       await App.SaveSettings(settings)
     } catch (e) {

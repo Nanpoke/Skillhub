@@ -15,6 +15,7 @@ const showNotification = inject<(message: string, type: string) => void>('showNo
 
 const expandedSkill = ref<string | null>(null)
 const updatingSkill = ref<string | null>(null)
+const batchUpdatingProgress = ref(0) // 批量更新进度
 
 // 编辑状态 - 使用 reactive 对象存储
 const editingData = ref<Record<string, {
@@ -120,6 +121,41 @@ async function handleUpdateSkill(skillId: string) {
     }
   } finally {
     updatingSkill.value = null
+  }
+}
+
+// 批量更新处理
+async function handleBatchUpdate() {
+  const confirmed = showConfirm ? await showConfirm({
+    title: '批量更新',
+    message: `确定要更新所有 ${skillStore.updatableSkillsCount} 个可更新的 Skill 吗？`,
+    type: 'info',
+    confirmText: '开始更新',
+    cancelText: '取消'
+  }) : confirm(`确定要更新所有 ${skillStore.updatableSkillsCount} 个可更新的 Skill 吗？`)
+
+  if (!confirmed) {
+    return
+  }
+
+  try {
+    const result = await skillStore.batchUpdateAll()
+    if (showNotification) {
+      showNotification?.(`批量更新完成：成功 ${result.success} 个，失败 ${result.failed} 个`, result.failed > 0 ? 'warning' : 'success')
+    }
+  } catch (e) {
+    if (showNotification) {
+      showNotification?.(`批量更新失败: ${e}`, 'error')
+    }
+  }
+}
+
+// 切换忽略更新
+async function handleToggleIgnoreUpdate(skillId: string) {
+  skillStore.toggleIgnoreUpdate(skillId)
+  const isIgnored = skillStore.ignoredUpdates.includes(skillId)
+  if (showNotification) {
+    showNotification?.(isIgnored ? '已忽略该 Skill 的更新' : '已恢复该 Skill 的更新提醒', 'info')
   }
 }
 
@@ -309,6 +345,31 @@ const categories = computed(() => skillStore.categories)
               {{ tool.name }}
             </span>
           </div>
+          <div class="flex-1"></div>
+          <div class="flex items-center gap-4">
+            <div
+              class="flex items-center gap-1 cursor-pointer transition-all"
+              @click="skillStore.filterUpdateOnly = !skillStore.filterUpdateOnly"
+              :class="skillStore.filterUpdateOnly ? 'text-orange-400' : ''"
+            >
+              <span :class="skillStore.filterUpdateOnly ? 'text-orange-300' : 'text-gray-400'">可更新数：</span>
+              <span class="font-semibold font-mono text-lg">{{ skillStore.updatableSkillsCount }}</span>
+            </div>
+            <button
+              v-if="skillStore.updatableSkillsCount > 0 && !skillStore.batchUpdating"
+              @click="handleBatchUpdate"
+              class="btn-secondary text-xs px-3 py-1.5 text-cyber-accent border-cyber-accent/30"
+            >
+              <i class="fas fa-sync-alt mr-1"></i>一键更新
+            </button>
+            <div
+              v-if="skillStore.batchUpdating"
+              class="flex items-center gap-2 text-xs text-gray-400"
+            >
+              <i class="fas fa-spinner fa-spin"></i>
+              <span>批量更新中...</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -410,11 +471,27 @@ const categories = computed(() => skillStore.categories)
           <!-- Empty State -->
           <div v-else-if="skillStore.filteredSkills.length === 0" class="text-center py-12">
             <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-cyber-panel border border-cyber-border flex items-center justify-center">
-              <span class="text-3xl">📦</span>
+              <span v-if="skillStore.filterUpdateOnly" class="text-3xl">🎉</span>
+              <span v-else class="text-3xl">📦</span>
             </div>
-            <h3 class="text-lg font-semibold text-white mb-2">暂无 Skills</h3>
-            <p class="text-sm text-gray-500 mb-4">开始安装你的第一个 Skill 吧</p>
-            <button @click="showInstall" class="px-6 py-2.5 rounded-xl text-cyber-dark bg-gradient-to-r from-cyber-accent to-cyber-accent2 font-medium hover:opacity-90 transition-all">
+            <h3 v-if="skillStore.filterUpdateOnly" class="text-lg font-semibold text-white mb-2">太棒了！</h3>
+            <h3 v-else class="text-lg font-semibold text-white mb-2">暂无 Skills</h3>
+
+            <p v-if="skillStore.filterUpdateOnly" class="text-sm text-gray-500 mb-4">所有 Skill 都是最新版本</p>
+            <p v-else class="text-sm text-gray-500 mb-4">开始安装你的第一个 Skill 吧</p>
+
+            <button
+              v-if="skillStore.filterUpdateOnly"
+              @click="skillStore.filterUpdateOnly = false"
+              class="px-6 py-2.5 rounded-xl text-cyber-dark bg-gradient-to-r from-cyber-accent to-cyber-accent2 font-medium hover:opacity-90 transition-all"
+            >
+              查看全部 Skill
+            </button>
+            <button
+              v-else
+              @click="showInstall"
+              class="px-6 py-2.5 rounded-xl text-cyber-dark bg-gradient-to-r from-cyber-accent to-cyber-accent2 font-medium hover:opacity-90 transition-all"
+            >
               安装 Skill
             </button>
           </div>
@@ -424,10 +501,20 @@ const categories = computed(() => skillStore.categories)
             <div
               v-for="skill in skillStore.filteredSkills"
               :key="skill.id"
-              class="skill-card glass-panel rounded-2xl p-5 cursor-pointer"
+              :class="[
+                'skill-card glass-panel rounded-2xl p-5 cursor-pointer relative',
+                skill.has_update && !skillStore.ignoredUpdates.includes(skill.id) ? 'has-update' : ''
+              ]"
               @click="toggleExpand(skill.id)"
             >
-              <div class="flex items-start justify-between">
+              <!-- 更新徽章 -->
+              <div
+                v-if="skill.has_update && !skillStore.ignoredUpdates.includes(skill.id)"
+                class="absolute -top-2 -right-2 px-3 py-1 rounded-full update-badge text-xs font-bold text-white z-20"
+              >
+                <i class="fas fa-arrow-up mr-1"></i>有更新
+              </div>
+              <div class="flex items-start justify-between relative z-10">
                 <div class="flex-1">
                   <div class="flex items-center gap-3 mb-3">
                     <!-- Category Icon -->
@@ -437,13 +524,10 @@ const categories = computed(() => skillStore.categories)
                     <div>
                       <h3 class="text-lg font-semibold text-white font-mono">
                         {{ skill.original_name || skill.name }}
-                        <span v-if="skill.has_update" class="px-2 py-0.5 rounded-full bg-orange-500/20 border border-orange-500/50 text-xs text-orange-400 ml-2">
-                          <i class="fas fa-arrow-up mr-1"></i>有更新
-                        </span>
                       </h3>
                       <div class="flex items-center gap-3 mt-1">
-                        <span class="text-xs text-gray-500">
-                          <i class="far fa-calendar-alt mr-1"></i>{{ skill.installed_at?.substring(0, 10) || '-' }}
+                        <span class="text-xs text-gray-500" :title="skill.updated_at ? '更新时间' : '安装时间'">
+                          <i class="far fa-calendar-alt mr-1"></i>{{ (skill.updated_at || skill.installed_at)?.substring(0, 10) || '-' }}
                         </span>
                         <span class="px-2 py-0.5 rounded-full bg-cyber-panel border border-cyber-border text-xs text-gray-400">
                           <i class="fas fa-folder mr-1"></i>{{ skill.category || '未分类' }}
@@ -496,17 +580,27 @@ const categories = computed(() => skillStore.categories)
                   >
                     <i class="fas fa-eye text-sm"></i>
                   </button>
+                  <!-- 更新按钮（有更新时显示） -->
                   <button
+                    v-if="skill.has_update && !skillStore.ignoredUpdates.includes(skill.id)"
                     @click="handleUpdateSkill(skill.id)"
                     :class="[
-                      'btn-icon',
-                      skill.has_update ? 'border-cyber-accent text-cyber-accent' : '',
+                      'btn-primary btn-primary-sm',
                       updatingSkill === skill.id ? 'opacity-50 cursor-not-allowed' : ''
                     ]"
-                    title="更新"
+                    title="更新可用"
                     :disabled="updatingSkill === skill.id"
                   >
-                    <i :class="['fas text-sm', updatingSkill === skill.id ? 'fa-spinner fa-spin' : 'fa-sync-alt']"></i>
+                    <i :class="['fas', updatingSkill === skill.id ? 'fa-spinner fa-spin' : 'fa-arrow-up']"></i>
+                  </button>
+                  <!-- 忽略更新按钮 -->
+                  <button
+                    v-if="skill.has_update"
+                    @click="handleToggleIgnoreUpdate(skill.id)"
+                    class="btn-icon"
+                    :title="skillStore.ignoredUpdates.includes(skill.id) ? '恢复更新提醒' : '忽略更新'"
+                  >
+                    <i :class="['fas text-sm', skillStore.ignoredUpdates.includes(skill.id) ? 'fa-bell-slash text-gray-500' : 'fa-bell text-orange-400']"></i>
                   </button>
                   <button
                     @click="handleDeleteSkill(skill.id)"

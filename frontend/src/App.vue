@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { onMounted, ref, provide } from 'vue'
+import { onMounted, onUnmounted, ref, provide } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSettingsStore } from './stores/settings'
+import { useSkillStore } from './stores/skills'
+import { EventsOn } from '../wailsjs/runtime/runtime'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 
 const router = useRouter()
 const settingsStore = useSettingsStore()
+const skillStore = useSkillStore()
 const confirmDialogRef = ref<InstanceType<typeof ConfirmDialog>>()
 
 // 全局通知系统
@@ -91,6 +94,29 @@ onMounted(async () => {
   if (settingsStore.isFirstRun) {
     router.push('/wizard')
   }
+
+  // 监听更新检查事件
+  EventsOn('updates:started', () => {
+    console.log('更新检查开始')
+  })
+
+  EventsOn('updates:completed', async (data: any) => {
+    console.log('更新检查完成:', data)
+    // 重新加载 Skills 数据以获取最新的 has_update 状态
+    await skillStore.loadSkills()
+    if (data.update_count > 0) {
+      showNotification(`发现 ${data.update_count} 个 Skill 有更新`, 'info', 5000)
+    }
+  })
+
+  EventsOn('updates:failed', (data: any) => {
+    console.error('更新检查失败:', data.error)
+    // 不显示错误通知，避免打扰用户
+  })
+})
+
+onUnmounted(() => {
+  // 清理事件监听器（如果需要）
 })
 </script>
 
@@ -187,6 +213,81 @@ onMounted(async () => {
 .slide-down-leave-to {
   opacity: 0;
   transform: translate(-50%, -100%);
+}
+</style>
+
+<style>
+/* ==================== 更新徽章 ==================== */
+.update-badge {
+  background: linear-gradient(135deg, #00d4aa, #a855f7);
+  animation: pulse 2s infinite;
+}
+
+/* ==================== Skill卡片定位 ==================== */
+.skill-card {
+  position: relative;
+}
+
+/* ==================== 脉冲动画 ==================== */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+/* ==================== 有更新的卡片效果 ==================== */
+.skill-card.has-update {
+  border-color: rgba(0, 212, 170, 0.3);
+  box-shadow: 0 0 20px rgba(0, 212, 170, 0.1);
+}
+
+.skill-card.has-update:hover {
+  border-color: rgba(0, 212, 170, 0.5);
+  box-shadow: 0 0 30px rgba(0, 212, 170, 0.15);
+}
+
+/* ==================== 主按钮 ==================== */
+.btn-primary {
+  background: linear-gradient(135deg, #00d4aa, #a855f7);
+  color: #0a0a0f;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 212, 170, 0.25);
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 212, 170, 0.4),
+            0 0 30px rgba(0, 212, 170, 0.2);
+}
+
+.btn-primary:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary-sm {
+  width: 36px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>
 

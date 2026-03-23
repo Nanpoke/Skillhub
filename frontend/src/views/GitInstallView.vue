@@ -50,14 +50,22 @@ async function parseAndClone() {
   error.value = null
 
   try {
+    // 前端调试输出
+    console.log('=== 前端调试信息 ===')
+    console.log('1. 前端gitUrl.value:', gitUrl.value)
+    console.log('2. 前端将发送的URL:', gitUrl.value)
+
     // 解析 URL
     const info = await App.ParseGitURL(gitUrl.value)
+    console.log('3. ParseGitURL返回:', info)
     urlInfo.value = info
 
     step.value = 'preview'
 
-    // 使用解析后的基础 URL 进行克隆
-    const result = await App.CloneFromGit(info.full_url)
+    // 使用用户输入的完整 URL 进行克隆（包含子路径）
+    console.log('4. 即将调用CloneFromGit，URL为:', gitUrl.value)
+    const result = await App.CloneFromGit(gitUrl.value)
+    console.log('5. CloneFromGit返回:', result)
     cloneResult.value = result
     tempPath.value = result.TempPath
 

@@ -434,7 +434,13 @@ type GitInstallResult struct {
 
 // CloneFromGit 从 Git 仓库克隆并扫描 Skills
 func (m *Manager) CloneFromGit(url string) (*GitInstallResult, error) {
-	git := utils.NewGitClient()
+	// 获取GitHub Token配置
+	settings, _ := m.GetSettings()
+	githubToken := ""
+	if settings != nil {
+		githubToken = settings.GitHubToken
+	}
+	git := utils.NewGitClient(githubToken)
 
 	if !git.IsGitInstalled() {
 		return nil, fmt.Errorf("Git 未安装，请先安装 Git")
@@ -446,8 +452,8 @@ func (m *Manager) CloneFromGit(url string) (*GitInstallResult, error) {
 		return nil, err
 	}
 
-	// 克隆仓库
-	result, err := git.Clone(gitInfo.FullURL)
+	// 克隆仓库（传递子路径）
+	result, err := git.Clone(gitInfo.FullURL, gitInfo.SubPath)
 	if err != nil {
 		return nil, err
 	}
@@ -463,8 +469,8 @@ func (m *Manager) CloneFromGit(url string) (*GitInstallResult, error) {
 		}
 	}
 
-	// 如果根目录没有找到 Skill，尝试扫描整个目录
-	if len(skills) == 0 {
+	// 如果根目录没有找到 Skill，尝试扫描整个目录（仅当没有指定子路径时）
+	if len(skills) == 0 && gitInfo.SubPath == "" {
 		// 检查根目录
 		info, err := m.ScanSkillPath(result.TempPath)
 		if err == nil {
@@ -492,11 +498,23 @@ func (m *Manager) InstallFromGit(tempPath string, skillRelativePath string, gitU
 	}
 
 	// 解析 Git URL 获取作者信息（优先级最高，覆盖从 SKILL.md/LICENSE 解析的作者）
-	git := utils.NewGitClient()
+	// 获取GitHub Token配置
+	settings, _ := m.GetSettings()
+	githubToken := ""
+	if settings != nil {
+		githubToken = settings.GitHubToken
+	}
+	git := utils.NewGitClient(githubToken)
 	gitInfo, err := git.ParseGitURL(gitURL)
+	var subPath string
 	if err == nil {
 		// 使用 Git URL 的作者信息
 		skillInfo.Author = gitInfo.Owner
+		// 优先使用解析到的SubPath，如果为空则使用安装时的相对路径
+		subPath = gitInfo.SubPath
+		if subPath == "" && skillRelativePath != "" {
+			subPath = skillRelativePath
+		}
 	}
 
 	// 生成名称
@@ -541,6 +559,7 @@ func (m *Manager) InstallFromGit(tempPath string, skillRelativePath string, gitU
 		Notes:        options.Notes,
 		InstalledAt:  now,
 		UpdatedAt:    now,
+		SubPath:      subPath,
 	}
 
 	if err := m.storage.SaveMetadata(name, meta); err != nil {
@@ -564,7 +583,13 @@ func (m *Manager) CleanupClone(tempPath string) {
 
 // ParseGitURL 解析 Git URL
 func (m *Manager) ParseGitURL(url string) (*utils.GitURLInfo, error) {
-	git := utils.NewGitClient()
+	// 获取GitHub Token配置
+	settings, _ := m.GetSettings()
+	githubToken := ""
+	if settings != nil {
+		githubToken = settings.GitHubToken
+	}
+	git := utils.NewGitClient(githubToken)
 	return git.ParseGitURL(url)
 }
 
@@ -956,61 +981,189 @@ func parseAuthorFromLicense(path string) string {
 
 // CheckSkillUpdates 检查所有 Git 类型 Skills 的更新
 func (m *Manager) CheckSkillUpdates() ([]SkillUpdateInfo, error) {
+	fmt.Println("=== 开始检查 Skills 更新 ===")
+
 	skills, err := m.ListSkills()
 	if err != nil {
+		fmt.Printf("获取 Skills 列表失败: %v\n", err)
 		return nil, err
 	}
+	fmt.Printf("找到 %d 个 Skills\n", len(skills))
 
 	var updates []SkillUpdateInfo
-	git := utils.NewGitClient()
+	checkedCount := 0 // 统计检查次数
+	skippedCount := 0 // 统计跳过次数
+
+	// 获取GitHub Token配置
+	settings, _ := m.GetSettings()
+	githubToken := ""
+	if settings != nil {
+		githubToken = settings.GitHubToken
+	}
+	git := utils.NewGitClient(githubToken)
 
 	for _, skillInfo := range skills {
+		fmt.Printf("--- 检查 Skill: %s (类型: %s) ---\n", skillInfo.ID, skillInfo.SourceType)
+
 		// 只检查 Git 类型的 Skill
 		if skillInfo.SourceType != SourceTypeGit {
+			fmt.Printf("  跳过: 非 Git 类型 (类型: %s)\n", skillInfo.SourceType)
+			skippedCount++
 			continue
 		}
 
 		// 解析 Git URL 获取 owner/repo
+		fmt.Printf("  源 URL: %s\n", skillInfo.SourceURL)
 		gitInfo, err := git.ParseGitURL(skillInfo.SourceURL)
 		if err != nil {
+			fmt.Printf("  ❌ 解析 Git URL 失败: %v\n", err)
+			skippedCount++
 			continue
 		}
+		fmt.Printf("  仓库: %s/%s\n", gitInfo.Owner, gitInfo.Repo)
 
 		// 获取 Git 目录路径
 		gitDir := m.storage.SkillGitPath(skillInfo.ID)
+		fmt.Printf("  Git 目录: %s\n", gitDir)
 		if _, err := os.Stat(gitDir); err != nil {
-			continue // Git 目录不存在，跳过
+			fmt.Printf("  ❌ Git 目录不存在: %v\n", err)
+			skippedCount++
+			continue
 		}
 
 		// 获取本地版本（使用支持分离 .git 目录的方法）
 		localTag, err := git.GetTagWithGitDir(gitDir)
 		if err != nil {
+			fmt.Printf("  ❌ 获取本地版本失败: %v\n", err)
+			skippedCount++
 			continue
 		}
+		fmt.Printf("  本地版本: %s\n", localTag)
 
-		// 获取远程最新版本
-		release, err := git.FetchLatestRelease(gitInfo.Owner, gitInfo.Repo)
+		// 加载元数据
+		meta, err := m.storage.LoadMetadata(skillInfo.ID)
 		if err != nil {
+			fmt.Printf("  ❌ 加载元数据失败: %v\n", err)
+			skippedCount++
 			continue
 		}
 
-		// 比较版本
-		hasUpdate := git.CompareVersions(localTag, release.TagName) < 0
+		hasUpdate := false
+		latestVersion := localTag
+		useCommitTime := false
+
+		// 优先使用tag版本比较
+		if localTag != "unknown" {
+			// 获取远程最新版本
+			fmt.Printf("  正在获取远程最新版本...")
+			release, err := git.FetchLatestRelease(gitInfo.Owner, gitInfo.Repo)
+			if err == nil {
+				fmt.Printf("  远程版本: %s\n", release.TagName)
+				latestVersion = release.TagName
+				// 比较版本
+				hasUpdate = git.CompareVersions(localTag, release.TagName) < 0
+				fmt.Printf("  版本比较: %s vs %s -> 有更新: %v\n",
+					localTag, release.TagName, hasUpdate)
+			} else {
+				if strings.Contains(err.Error(), "404") {
+					fmt.Printf("  🔍 仓库没有发布 Release，回退到提交时间比较\n")
+					useCommitTime = true
+				} else {
+					fmt.Printf("  ❌ 获取远程版本失败: %v\n", err)
+					skippedCount++
+					continue
+				}
+			}
+		} else {
+			fmt.Printf("  🔍 本地没有tag，使用提交时间比较\n")
+			useCommitTime = true
+		}
+
+		// 如果需要使用提交时间比较
+		if useCommitTime {
+			// 获取SubPath，优先从元数据获取，否则从URL解析
+			subPath := meta.SubPath
+			if subPath == "" {
+				// 从Git URL解析
+				parsedInfo, err := git.ParseGitURL(skillInfo.SourceURL)
+				if err == nil {
+					subPath = parsedInfo.SubPath
+				}
+			}
+
+			// 如果仍然没有SubPath，尝试从Skill ID提取（去掉作者前缀）
+			if subPath == "" {
+				// Skill ID格式是 author-skillname，我们需要提取skillname部分
+				parts := strings.SplitN(skillInfo.ID, "-", 2)
+				if len(parts) == 2 {
+					subPath = parts[1]
+				} else {
+					// 如果拆分失败，直接使用整个ID作为路径
+					subPath = skillInfo.ID
+				}
+			}
+
+			// 保存SubPath到元数据方便下次使用
+			if meta.SubPath != subPath {
+				meta.SubPath = subPath
+				m.storage.SaveMetadata(skillInfo.ID, meta)
+			}
+
+			if subPath != "" {
+				fmt.Printf("  子路径: %s\n", subPath)
+				// 获取远程最新提交时间
+				fmt.Printf("  正在获取远程最新提交时间...")
+				remoteCommitTime, err := git.FetchLatestCommitTime(gitInfo.Owner, gitInfo.Repo, subPath)
+				if err == nil {
+					fmt.Printf("  远程提交时间: %s\n", remoteCommitTime.Format("2006-01-02 15:04:05"))
+					fmt.Printf("  本地更新时间: %s\n", meta.UpdatedAt.Format("2006-01-02 15:04:05"))
+					// 比较时间
+					hasUpdate = remoteCommitTime.After(meta.UpdatedAt)
+					latestVersion = remoteCommitTime.Format("2006-01-02")
+					fmt.Printf("  时间比较: 远程更新 -> 有更新: %v\n", hasUpdate)
+				} else {
+					fmt.Printf("  ❌ 获取提交时间失败: %v，跳过更新检查\n", err)
+					// 更新元数据为无更新
+					if meta.HasUpdate {
+						meta.HasUpdate = false
+						m.storage.SaveMetadata(skillInfo.ID, meta)
+					}
+					skippedCount++
+					continue
+				}
+			} else {
+				fmt.Printf("  🔍 无法获取子路径信息，跳过更新检查\n")
+				// 更新元数据为无更新
+				if meta.HasUpdate {
+					meta.HasUpdate = false
+					m.storage.SaveMetadata(skillInfo.ID, meta)
+				}
+				skippedCount++
+				continue
+			}
+		}
 
 		updates = append(updates, SkillUpdateInfo{
 			Name:           skillInfo.ID,
 			CurrentVersion: localTag,
-			LatestVersion:  release.TagName,
+			LatestVersion:  latestVersion,
 			HasUpdate:      hasUpdate,
 		})
 
 		// 更新 HasUpdate 标识到元数据
-		meta, _ := m.storage.LoadMetadata(skillInfo.ID)
-		if meta != nil && meta.HasUpdate != hasUpdate {
+		if meta.HasUpdate != hasUpdate {
+			fmt.Printf("  更新元数据: HasUpdate = %v\n", hasUpdate)
 			meta.HasUpdate = hasUpdate
 			m.storage.SaveMetadata(skillInfo.ID, meta)
 		}
+
+		checkedCount++
+		fmt.Printf("  ✓ 检查完成\n")
 	}
+
+	fmt.Printf("=== 检查完成 ===")
+	fmt.Printf("  总计: %d, 检查: %d, 跳过: %d, 有更新: %d\n",
+		len(skills), checkedCount, skippedCount, len(updates))
 
 	return updates, nil
 }
@@ -1037,7 +1190,13 @@ func (m *Manager) UpdateSkill(name string) error {
 	}
 
 	// 执行 git pull 更新（使用分离的 .git 目录和工作目录）
-	git := utils.NewGitClient()
+	// 获取GitHub Token配置
+	settings, _ := m.GetSettings()
+	githubToken := ""
+	if settings != nil {
+		githubToken = settings.GitHubToken
+	}
+	git := utils.NewGitClient(githubToken)
 	if err := git.PullWithGitDir(gitDir, skillDir); err != nil {
 		return fmt.Errorf("git pull failed: %w", err)
 	}
