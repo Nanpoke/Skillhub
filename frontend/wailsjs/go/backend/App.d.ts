@@ -75,6 +75,8 @@ export function ListSkillFiles(arg1:string,arg2:string):Promise<Array<backend.Fi
 
 export function MigrateData(arg1:string):Promise<void>;
 
+export function OpenURL(arg1:string):Promise<void>;
+
 export function ParseGitURL(arg1:string):Promise<backend.GitURLInfo>;
 
 export function PreviewImportFile(arg1:string):Promise<backend.ImportPreview>;

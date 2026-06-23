@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -1266,6 +1267,16 @@ func (a *App) SelectInstallFile() (string, error) {
 	}
 
 	return selection, nil
+}
+
+// OpenURL 在系统默认浏览器中打开 URL
+// 仅允许 http/https 协议，避免 javascript:、file: 等被恶意构造的 URL
+func (a *App) OpenURL(url string) error {
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		return fmt.Errorf("仅支持 http/https 链接")
+	}
+	runtime.BrowserOpenURL(a.ctx, url)
+	return nil
 }
 
 // === 路径验证相关方法 ===

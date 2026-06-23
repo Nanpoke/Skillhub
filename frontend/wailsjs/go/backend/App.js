@@ -146,6 +146,10 @@ export function MigrateData(arg1) {
   return window['go']['backend']['App']['MigrateData'](arg1);
 }
 
+export function OpenURL(arg1) {
+  return window['go']['backend']['App']['OpenURL'](arg1);
+}
+
 export function ParseGitURL(arg1) {
   return window['go']['backend']['App']['ParseGitURL'](arg1);
 }
