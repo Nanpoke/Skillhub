@@ -102,6 +102,12 @@ func (m *Manager) GetSkill(name string) (*Skill, error) {
 		toolsEnabled[adapter.ID()] = adapter.IsSkillEnabled(name)
 	}
 
+	// 本地导入的 Skill，SourceURL 是本地路径，不暴露给前端作为可点击 URL
+	sourceURL := meta.SourceURL
+	if meta.SourceType == SourceTypeLocal {
+		sourceURL = ""
+	}
+
 	return &Skill{
 		ID:           name,
 		Name:         meta.Name,
@@ -109,7 +115,7 @@ func (m *Manager) GetSkill(name string) (*Skill, error) {
 		Author:       meta.Author,
 		Description:  "", // 从 SKILL.md 读取，这里暂时留空
 		SourceType:   meta.SourceType,
-		SourceURL:    meta.SourceURL,
+		SourceURL:    sourceURL,
 		Category:     meta.Category,
 		Tags:         meta.Tags,
 		Notes:        meta.Notes,
