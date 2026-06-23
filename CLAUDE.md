@@ -97,6 +97,7 @@ A "pointer" config is also saved at `%APPDATA%\SkillHub` (Windows) or `~/.config
 - **Skill ID format**: `{author}-{skillname}` where author comes from Git URL owner (for git installs) or SKILL.md frontmatter/LICENSE.txt parsing (for local installs).
 - **Enable/Disable mechanism**: Enable = `CopyDir` from `~/.skill-hub/skills/{id}` to tool's skills path (or `CreateSkillLink` Junction/symlink for install from Sync pull). Disable = `RemoveSkillLink` (detects if it's a symlink → remove link only; otherwise → RemoveAll for legacy copies).
 - **Detached .git**: Git-installed skills store their .git separately under `~/.skill-hub/git/{id}`. This allows updating skills via `git --git-dir ... --work-tree ... pull` without mixing .git into the skill content directory.
+- **SourceURL exposure**: `Manager.GetSkill` returns `SourceURL: ""` for `SourceTypeLocal` skills, even though `Metadata.SourceURL` may hold the local file path on disk. This keeps the frontend's "Skill 来源" UI from rendering a local path as a clickable URL; the UI instead shows "本地导入" for locally-installed skills.
 - **Dual update detection**: Tag version comparison first; if no Release/tag exists, falls back to GitHub API commit timestamp comparison.
 - **Security**: Git URL domain whitelist (github.com, gitlab.com, gitee.com), path traversal validation on skill names and zip extraction, null byte checks.
 

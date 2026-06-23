@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Added
+
+#### Skill 来源 URL 可点击打开
+
+- 后端新增 `OpenURL(url string) error` 绑定方法（`backend/app.go`），调用 `runtime.BrowserOpenURL` 在系统默认浏览器中打开 URL；仅放行 `http://` / `https://` 协议，拒绝 `javascript:` / `file:` 等
+- 主窗口 Skill 卡片展开后的"Skill 描述"区块改名为"Skill 来源"；Git 来源 Skill 显示完整 URL + 外链图标（`fa-external-link-alt`），点击调用 `App.OpenURL` 在系统浏览器中打开
+- 本地导入 Skill（`SourceTypeLocal`）在"Skill 来源"区块显示"📂 本地导入"占位文字（不可点击）
+
+#### 搜索匹配备注
+
+- 主窗口顶部搜索框的匹配字段从 4 个（`name` / `description` / `tags` / `author`）扩展为 5 个，新增 `notes`（用户填写的备注）
+
+### Fixed
+
+- `GetSkill` 序列化时对 `SourceTypeLocal` 类型的 Skill 清空 `SourceURL` 字段：之前本地安装路径（如 `C:\...\xxx.zip`）会作为 `source_url` 暴露给前端，触发"打开来源失败"通知；现在本地导入 Skill 在 UI 上自然走"本地导入"分支
+
 ## [1.4] - 2026-06-21
 
 ### Added
