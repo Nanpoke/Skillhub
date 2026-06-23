@@ -261,8 +261,9 @@ func (m *Manager) ScanLocalPath(path string) (*LocalScanResult, error) {
 
 	// 判断是文件还是目录
 	if info.IsDir() {
-		// 文件夹：直接扫描
-		return m.scanLocalFolder(path, "")
+		// 文件夹：直接扫描。文件夹本身就是工作根，作为 tempPath 传递，
+		// 以便后续 InstallFromLocalTemp 能正确重建完整路径
+		return m.scanLocalFolder(path, path)
 	}
 
 	// 文件：检查是否是压缩包
