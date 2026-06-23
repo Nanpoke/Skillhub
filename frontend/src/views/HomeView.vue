@@ -277,6 +277,18 @@ function getToolName(toolId: string): string {
 }
 
 // 计算常用标签（按使用频率排序，取前15个）
+// 打开 Skill 来源 URL
+async function openSource(url: string) {
+  try {
+    await App.OpenURL(url)
+  } catch (e) {
+    console.error('OpenURL failed:', e)
+    if (showNotification) {
+      showNotification(`打开来源失败: ${e}`, 'error')
+    }
+  }
+}
+
 const popularTags = computed(() => {
   const tagCount: Record<string, number> = {}
   skillStore.skills.forEach(s => {
@@ -689,13 +701,22 @@ const popularTags = computed(() => {
                 class="pt-5 mt-5 border-t border-cyber-border"
                 @click.stop
               >
-                <!-- Skill 描述 -->
+                <!-- Skill 来源 -->
                 <div class="mb-5">
                   <h4 class="text-sm font-semibold text-white mb-2 font-mono">
-                    <i class="fas fa-align-left mr-2 text-cyber-accent"></i>Skill 描述
+                    <i class="fas fa-link mr-2 text-cyber-accent"></i>Skill 来源
                   </h4>
-                  <p class="text-sm text-gray-400 leading-relaxed">
-                    {{ skill.description || '暂无描述' }}
+                  <a
+                    v-if="skill.source_url"
+                    @click="openSource(skill.source_url)"
+                    :title="skill.source_url"
+                    class="source-link flex items-center gap-2 text-sm text-cyber-accent hover:underline cursor-pointer group"
+                  >
+                    <span class="truncate flex-1 overflow-x-auto whitespace-nowrap">{{ skill.source_url }}</span>
+                    <i class="fas fa-external-link-alt text-xs opacity-70 group-hover:opacity-100 flex-shrink-0"></i>
+                  </a>
+                  <p v-else class="text-sm text-gray-400">
+                    <i class="fas fa-folder-open mr-1.5 text-gray-500"></i>本地导入
                   </p>
                 </div>
 
