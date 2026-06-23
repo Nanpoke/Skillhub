@@ -81,7 +81,8 @@ export const useSkillStore = defineStore('skills', () => {
         s.name.toLowerCase().includes(query) ||
         s.description?.toLowerCase().includes(query) ||
         s.tags?.some(t => t.toLowerCase().includes(query)) ||
-        s.author?.toLowerCase().includes(query)
+        s.author?.toLowerCase().includes(query) ||
+        s.notes?.toLowerCase().includes(query)
       )
     }
 
