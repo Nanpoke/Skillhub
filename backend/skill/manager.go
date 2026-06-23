@@ -858,7 +858,7 @@ func (m *Manager) RemoveCustomTool(id string) error {
 		skillDir := filepath.Join(targetTool.SkillsPath, skillName)
 		if _, err := os.Stat(skillDir); err == nil {
 			// Skill 文件存在，删除它
-			if err := os.RemoveAll(skillDir); err != nil {
+			if err := utils.RemoveSkillLink(skillDir); err != nil {
 				// 记录错误但继续处理其他 Skill
 				fmt.Printf("Warning: failed to remove skill %s from %s: %v\n", skillName, targetTool.SkillsPath, err)
 			}

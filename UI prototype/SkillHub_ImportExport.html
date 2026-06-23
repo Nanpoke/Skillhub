@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkillHub - 导入/导出</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'monospace'],
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        cyber: {
+                            dark: '#0a0a0f',
+                            panel: '#12121a',
+                            border: '#1e1e2e',
+                            accent: '#00d4aa',
+                            accent2: '#a855f7',
+                            glow: 'rgba(0, 212, 170, 0.15)',
+                        }
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0a0a0f 0%, #12121a 50%, #0f0f16 100%);
+            min-height: 100vh;
+        }
+        /* 玻璃态面板 - 渐变边框 */
+        .glass-panel {
+            position: relative;
+            background: rgba(26, 26, 36, 0.6);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+        }
+        .glass-panel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.12) 0%,
+                rgba(255, 255, 255, 0.04) 50%,
+                rgba(255, 255, 255, 0.12) 100%
+            );
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0.8;
+            transition: opacity 0.3s, background 0.3s;
+            pointer-events: none;
+        }
+        .glass-panel:hover::before {
+            opacity: 1;
+            background: linear-gradient(135deg,
+                rgba(0, 212, 170, 0.3) 0%,
+                rgba(168, 85, 247, 0.2) 100%
+            );
+        }
+        .glass-panel-no-hover:hover::before {
+            background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.12) 0%,
+                rgba(255, 255, 255, 0.04) 50%,
+                rgba(255, 255, 255, 0.12) 100%
+            );
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #00d4aa 0%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        /* 图标按钮 */
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            background: rgba(18, 18, 26, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #9ca3af;
+            transition: all 0.2s ease;
+        }
+        .btn-icon:hover {
+            border-color: rgba(0, 212, 170, 0.4);
+            color: #00d4aa;
+        }
+        /* 主按钮 */
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4aa, #a855f7);
+            color: #0a0a0f;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(0, 212, 170, 0.25);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(0, 212, 170, 0.4),
+                        0 0 30px rgba(0, 212, 170, 0.2);
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        /* 次要按钮 */
+        .btn-secondary {
+            background: rgba(18, 18, 26, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #9ca3af;
+            padding: 12px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-secondary:hover {
+            border-color: rgba(0, 212, 170, 0.4);
+            color: #00d4aa;
+            background: rgba(0, 212, 170, 0.08);
+        }
+        /* Tab Button */
+        .tab-btn {
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+        }
+        .tab-btn:hover {
+            color: #9ca3af;
+        }
+        .tab-btn.active {
+            border-bottom-color: #00d4aa;
+            color: #00d4aa;
+        }
+        /* Radio Button */
+        .radio-btn {
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .radio-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.08) 0%,
+                rgba(255, 255, 255, 0.02) 100%
+            );
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            transition: background 0.3s;
+        }
+        .radio-btn:hover::before {
+            background: linear-gradient(135deg,
+                rgba(0, 212, 170, 0.3) 0%,
+                rgba(168, 85, 247, 0.2) 100%
+            );
+        }
+        .radio-btn.selected {
+            border-color: #00d4aa;
+            background: rgba(0, 212, 170, 0.1);
+        }
+        .radio-btn.selected .radio-circle {
+            border-color: #00d4aa;
+            background: #00d4aa;
+            box-shadow: 0 0 10px rgba(0, 212, 170, 0.3);
+        }
+        .radio-btn.selected .radio-circle::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 6px;
+            height: 6px;
+            background: #0a0a0f;
+            border-radius: 50%;
+        }
+        .radio-circle {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #4b5563;
+            border-radius: 50%;
+            position: relative;
+            transition: all 0.3s;
+        }
+        .drop-zone {
+            transition: all 0.3s ease;
+            border: 2px dashed rgba(255, 255, 255, 0.1);
+        }
+        .drop-zone:hover {
+            border-color: rgba(0, 212, 170, 0.5);
+            background: rgba(0, 212, 170, 0.05);
+        }
+        /* Background Effects */
+        .bg-glow {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.1;
+            pointer-events: none;
+        }
+        .bg-glow-1 {
+            bottom: -200px;
+            left: -200px;
+            background: #00d4aa;
+        }
+        .bg-glow-2 {
+            top: -200px;
+            right: -200px;
+            background: #a855f7;
+        }
+    </style>
+</head>
+<body class="text-gray-300 font-sans">
+    <!-- Background Effects -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <!-- Main Container -->
+    <div class="relative z-10 min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="glass-panel glass-panel-no-hover sticky top-0 z-50 rounded-none border-b border-cyber-border">
+            <div class="max-w-4xl mx-auto px-6 py-4 relative z-10">
+                <div class="flex items-center gap-4">
+                    <button onclick="goBack()" class="btn-icon">
+                        <i class="fas fa-arrow-left text-sm"></i>
+                    </button>
+                    <div>
+                        <h1 class="text-xl font-bold font-mono">
+                            <span class="gradient-text">导入</span> <span class="text-gray-500">/</span> <span class="text-white">导出</span>
+                        </h1>
+                        <p class="text-xs text-gray-500">备份和恢复 SkillHub 配置</p>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <div class="glass-panel glass-panel-no-hover rounded-none border-b border-cyber-border">
+            <div class="max-w-4xl mx-auto px-6 relative z-10">
+                <div class="flex gap-8">
+                    <button onclick="switchTab('export')" id="tab-export" class="tab-btn active py-4 text-sm font-medium">
+                        <i class="fas fa-file-export mr-2"></i>导出配置
+                    </button>
+                    <button onclick="switchTab('import')" id="tab-import" class="tab-btn py-4 text-sm font-medium text-gray-500">
+                        <i class="fas fa-file-import mr-2"></i>导入配置
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-6">
+            <div class="max-w-4xl mx-auto">
+                
+                <!-- Export Panel -->
+                <div id="export-panel" class="glass-panel rounded-2xl p-8 relative z-10">
+                    <div class="flex items-center gap-4 mb-6 relative z-10">
+                        <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-cyber-accent/20 to-cyber-accent2/20 border border-cyber-accent/30 flex items-center justify-center">
+                            <i class="fas fa-file-export text-2xl text-cyber-accent"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-semibold text-white">导出配置</h2>
+                            <p class="text-sm text-gray-500">将 SkillHub 完整配置导出为 .zip 备份文件</p>
+                        </div>
+                    </div>
+
+                    <!-- Export Content List -->
+                    <div class="mb-6 relative z-10">
+                        <label class="text-sm text-gray-400 block mb-3">导出内容</label>
+                        <div class="p-4 rounded-xl bg-cyber-dark border border-cyber-border">
+                            <ul class="space-y-2 text-sm">
+                                <li class="flex items-center gap-2 text-gray-300">
+                                    <i class="fas fa-check text-cyber-accent text-xs"></i>
+                                    Skills 文件本体及元数据
+                                </li>
+                                <li class="flex items-center gap-2 text-gray-300">
+                                    <i class="fas fa-check text-cyber-accent text-xs"></i>
+                                    工具启用配置
+                                </li>
+                                <li class="flex items-center gap-2 text-gray-300">
+                                    <i class="fas fa-check text-cyber-accent text-xs"></i>
+                                    应用设置
+                                </li>
+                                <li class="flex items-center gap-2 text-gray-300">
+                                    <i class="fas fa-check text-cyber-accent text-xs"></i>
+                                    自定义工具配置
+                                </li>
+                                <li class="flex items-center gap-2 text-gray-300">
+                                    <i class="fas fa-check text-cyber-accent text-xs"></i>
+                                    Git 缓存
+                                </li>
+                                <li class="flex items-center gap-2 text-gray-500">
+                                    <i class="fas fa-times text-gray-600 text-xs"></i>
+                                    <span class="line-through">历史记录</span>
+                                    <span class="text-xs text-gray-600">（不导出）</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Preview -->
+                    <div class="mb-6 relative z-10">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="text-sm text-gray-400">导出文件结构</label>
+                            <span class="text-xs text-gray-500">预计大小: ~15 MB</span>
+                        </div>
+                        <div class="p-4 rounded-xl bg-cyber-dark border border-cyber-border overflow-x-auto">
+                            <pre class="text-xs text-gray-400 font-mono">skillhub-backup-2024-01-15.zip
+├── manifest.json          # 元数据清单
+├── skills/                # Skill 文件本体
+│   ├── vercel-react-best-practices/
+│   └── frontend-design/
+├── git/                   # Git 缓存
+│   └── vercel-labs-agent-skills/
+└── config/                # 工具启用配置</pre>
+                        </div>
+                    </div>
+
+                    <!-- Export Button -->
+                    <div class="relative z-10">
+                        <button onclick="exportConfig()" class="btn-primary w-full text-lg flex items-center justify-center gap-2">
+                            <i class="fas fa-download"></i>
+                            <span>导出备份文件</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Import Panel -->
+                <div id="import-panel" class="glass-panel rounded-2xl p-8 relative z-10 hidden">
+                    <div class="flex items-center gap-4 mb-6 relative z-10">
+                        <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-cyber-accent2/20 to-purple-500/20 border border-cyber-accent2/30 flex items-center justify-center">
+                            <i class="fas fa-file-import text-2xl text-cyber-accent2"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-semibold text-white">导入配置</h2>
+                            <p class="text-sm text-gray-500">从 .zip 备份文件恢复 SkillHub 配置</p>
+                        </div>
+                    </div>
+
+                    <!-- Drop Zone -->
+                    <div class="drop-zone rounded-2xl p-8 mb-6 text-center cursor-pointer relative z-10" onclick="selectImportFile()">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-xl bg-cyber-panel flex items-center justify-center">
+                            <i class="fas fa-cloud-upload-alt text-2xl text-cyber-accent"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-white mb-2">选择备份文件</h3>
+                        <p class="text-sm text-gray-500 mb-4">支持 .zip 格式的 SkillHub 备份文件</p>
+                        <button class="btn-secondary">
+                            选择文件
+                        </button>
+                        <input type="file" id="importFileInput" class="hidden" accept=".zip" onchange="handleImportFile(this)">
+                    </div>
+
+                    <!-- Conflict Resolution -->
+                    <div class="mb-6 relative z-10">
+                        <label class="text-sm text-gray-400 block mb-3">冲突处理</label>
+                        <div class="space-y-3">
+                            <label class="radio-btn selected flex items-center gap-3 p-4 rounded-xl bg-cyber-dark border border-cyber-border cursor-pointer" onclick="selectConflictOption(this)">
+                                <div class="radio-circle"></div>
+                                <div>
+                                    <p class="text-sm font-medium text-white">覆盖并更新</p>
+                                    <p class="text-xs text-gray-500 mt-1">用导入的配置替换现有配置</p>
+                                </div>
+                            </label>
+
+                            <label class="radio-btn flex items-center gap-3 p-4 rounded-xl bg-cyber-dark border border-cyber-border cursor-pointer" onclick="selectConflictOption(this)">
+                                <div class="radio-circle"></div>
+                                <div>
+                                    <p class="text-sm font-medium text-white">跳过已有 Skill</p>
+                                    <p class="text-xs text-gray-500 mt-1">保留现有配置，仅导入新 Skill</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Import Preview (Hidden by default) -->
+                    <div id="importPreview" class="hidden mb-6 relative z-10">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="text-sm text-gray-400">导入预览</label>
+                            <span class="text-xs text-cyber-accent">文件有效</span>
+                        </div>
+                        <div class="p-4 rounded-xl bg-cyber-dark border border-cyber-border">
+                            <div class="flex items-center justify-between text-sm mb-2">
+                                <span class="text-gray-400">版本</span>
+                                <span class="text-white font-mono">1.0</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm mb-2">
+                                <span class="text-gray-400">导出日期</span>
+                                <span class="text-white font-mono">2024-01-15</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm mb-2">
+                                <span class="text-gray-400">包含 Skills</span>
+                                <span class="text-white font-mono">12 个</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm mb-2">
+                                <span class="text-gray-400">Git 缓存</span>
+                                <span class="text-white font-mono">3 个仓库</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-gray-400">自定义工具</span>
+                                <span class="text-white font-mono">1 个</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Import Button -->
+                    <div class="relative z-10">
+                        <button id="importBtn" onclick="startImport()" disabled class="btn-primary w-full text-lg flex items-center justify-center gap-2">
+                            <i class="fas fa-upload"></i>
+                            <span>开始导入</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let currentTab = 'export';
+
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+                btn.classList.add('text-gray-500');
+            });
+            document.getElementById('tab-' + tab).classList.add('active');
+            document.getElementById('tab-' + tab).classList.remove('text-gray-500');
+            
+            // Update panels
+            if (tab === 'export') {
+                document.getElementById('export-panel').classList.remove('hidden');
+                document.getElementById('import-panel').classList.add('hidden');
+            } else {
+                document.getElementById('export-panel').classList.add('hidden');
+                document.getElementById('import-panel').classList.remove('hidden');
+            }
+        }
+
+        function selectConflictOption(element) {
+            document.querySelectorAll('#import-panel .radio-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            element.classList.add('selected');
+        }
+
+        function exportConfig() {
+            // 模拟导出 manifest.json 结构
+            const manifest = {
+                skillhub_version: "1.0",
+                export_date: new Date().toISOString(),
+                skills: [
+                    {
+                        name: "vercel-react-best-practices",
+                        source: "github/vercel-labs/agent-skills",
+                        source_type: "github",
+                        tags: ["前端", "React", "Vercel"],
+                        notes: "Vercel 团队的最佳实践",
+                        category: "前端开发",
+                        tools_enabled: ["claude-code", "cursor"],
+                        installed_date: "2024-01-15T10:00:00Z"
+                    }
+                ],
+                custom_tools: [
+                    {
+                        name: "MyTool",
+                        path: "/custom/path/.mytool/skills/",
+                        added_date: "2024-01-10T08:00:00Z"
+                    }
+                ],
+                git_cache: [
+                    {
+                        repo_url: "https://github.com/vercel-labs/agent-skills",
+                        local_path: "git/vercel-labs-agent-skills",
+                        commit_hash: "abc123def456",
+                        branch: "main",
+                        last_pull: "2024-01-15T09:00:00Z"
+                    }
+                ],
+                settings: {
+                    skillhub_path: "~/.skill-hub",
+                    theme: "system",
+                    auto_update_check: true,
+                    update_frequency: "daily"
+                }
+            };
+
+            // 注意：实际实现中会创建 .zip 文件
+            // 这里仅演示 manifest.json 结构
+            const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `skillhub-backup-${new Date().toISOString().split('T')[0]}-manifest.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            alert('备份文件已导出！（演示：实际为 .zip 格式）');
+        }
+
+        function selectImportFile() {
+            document.getElementById('importFileInput').click();
+        }
+
+        function handleImportFile(input) {
+            if (input.files && input.files[0]) {
+                document.getElementById('importPreview').classList.remove('hidden');
+                document.getElementById('importBtn').disabled = false;
+            }
+        }
+
+        function startImport() {
+            if (confirm('确定要导入配置吗？这将' + (document.querySelector('#import-panel .radio-btn.selected').textContent.includes('覆盖') ? '覆盖' : '合并') + '现有配置。')) {
+                alert('导入成功！配置已恢复。');
+                goBack();
+            }
+        }
+
+        function goBack() {
+            alert('返回设置页面');
+        }
+    </script>
+</body>
+</html>

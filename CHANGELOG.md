@@ -4,9 +4,52 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased] - 2026-03-23
+## [1.4] - 2026-06-21
 
 ### Added
+
+#### 数据同步（GitHub 备份）
+
+- 新增 GitHub 数据同步功能，支持将 Skills 数据备份到远程仓库
+- **InitSync**：初始化同步仓库，创建 .gitignore（排除 config/history/settings），配置 remote
+- **SyncPush**：推送本地 skills/metadata/git 变更到远程，分批 git add 绕过嵌套仓库检测，自动 pull 再 push
+- **SyncPull**：从远程拉取并合并变更，冲突策略 ours（本地优先）
+- **GetSyncStatus**：查询同步状态（是否已配置、远程地址、分支、最后推送/拉取时间、是否有待提交变更）
+- **RemoveSync**：断开同步，移除 remote 配置，保留本地数据
+- **锁文件清理**：推送/拉取前自动清理残留的 index.lock / HEAD.lock
+- 设置页面完整同步管理 UI（初始化、推送弹窗、拉取确认、断开、变更远程地址）
+- 推送需 GitHub Token 且必须带有 repo 权限
+- Token 嵌入 URL 进行认证，禁用 Git 凭证助手防止旧凭证覆盖
+
+#### Symlink/Junction 启禁用机制
+
+- `utils/symlink.go`：跨平台 API（CreateSkillLink / IsSkillLink / RemoveSkillLink）
+- Windows 实现：`mklink /J` junction
+- Unix 实现：`os.Symlink`
+- 删除时自动识别链接类型：是链接则只删链接节点，非链接（旧版复制目录）则 RemoveAll
+- 自定义工具删除改用 RemoveSkillLink，防止误删源目录
+
+### Changed
+
+- Trae 工具的默认 Skills 路径从 `~/.trae/skills` 改为 `~/.trae-cn/skills`
+
+---
+
+## [1.3] - 2026-05-05
+
+### Fixed
+
+- **Sync Push 嵌套仓库推送修复**：`git/` 目录（裸 Git 仓库）和 `skills/` 目录曾被 Git 2.25+ 当作子模块引用（gitlink）处理，导致推送到远程后文件内容丢失。改为对所有同步目录（skills/、git/、metadata/）逐文件 `git add`，彻底绕过嵌套仓库检测。
+
+### Added
+
+#### 筛选状态条（Filter Bar）
+
+- 主界面新增 Filter Bar，仅在有活跃筛选条件时显示
+- 左侧以 chip 标签展示当前所有活跃筛选条件（分类、标签、工具、搜索词、可更新标记）
+- 每个 chip 可点击 × 单独移除对应筛选条件
+- 右侧"清除全部"按钮，一键归零所有筛选
+- 无筛选条件时 Filter Bar 隐藏不占空间
 
 #### Skill更新机制优化
 

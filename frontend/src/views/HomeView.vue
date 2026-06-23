@@ -271,6 +271,11 @@ const managedTools = computed(() => skillStore.allEnabledTools)
 
 const categories = computed(() => skillStore.categories)
 
+// 根据 toolId 获取工具名
+function getToolName(toolId: string): string {
+  return managedTools.value.find(t => t.id === toolId)?.name || toolId
+}
+
 // 计算常用标签（按使用频率排序，取前15个）
 const popularTags = computed(() => {
   const tagCount: Record<string, number> = {}
@@ -385,6 +390,46 @@ const popularTags = computed(() => {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div v-if="skillStore.activeFilterCount > 0" class="border-b border-cyber-border bg-cyber-panel/20 px-6 py-2">
+      <div class="flex items-center gap-2 flex-wrap">
+        <!-- 分类 chip -->
+        <span v-if="skillStore.selectedCategory !== '全部'" class="filter-chip">
+          <i :class="['fas w-3', getSidebarCategoryIcon(skillStore.selectedCategory)]"></i>
+          {{ skillStore.selectedCategory }}
+          <button @click="skillStore.setCategory('全部')" class="ml-1">&times;</button>
+        </span>
+        <!-- 标签 chips -->
+        <span v-for="tag in skillStore.selectedTags" :key="'tag-'+tag" class="filter-chip">
+          <span :class="['w-1.5 h-1.5 rounded-full inline-block', getTagColor(tag)]"></span>
+          {{ tag }}
+          <button @click="skillStore.toggleTag(tag)" class="ml-1">&times;</button>
+        </span>
+        <!-- 工具 chips -->
+        <span v-for="toolId in skillStore.selectedTools" :key="'tool-'+toolId" class="filter-chip">
+          <i class="fas fa-puzzle-piece w-3 text-xs"></i>
+          {{ getToolName(toolId) }}
+          <button @click="skillStore.toggleToolFilter(toolId)" class="ml-1">&times;</button>
+        </span>
+        <!-- 搜索 chip -->
+        <span v-if="skillStore.searchQuery" class="filter-chip">
+          <i class="fas fa-search w-3 text-xs"></i>
+          {{ skillStore.searchQuery }}
+          <button @click="skillStore.searchQuery = ''" class="ml-1">&times;</button>
+        </span>
+        <!-- 可更新 chip -->
+        <span v-if="skillStore.filterUpdateOnly" class="filter-chip text-orange-400 bg-orange-500/10 border-orange-500/30">
+          <i class="fas fa-arrow-up w-3 text-xs"></i>
+          可更新
+          <button @click="skillStore.filterUpdateOnly = false" class="ml-1">&times;</button>
+        </span>
+        <!-- 清除全部 -->
+        <button @click="skillStore.clearAllFilters()" class="text-xs text-gray-500 hover:text-cyber-accent ml-2">
+          清除全部
+        </button>
       </div>
     </div>
 
@@ -804,3 +849,26 @@ const popularTags = computed(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  background: rgba(0, 212, 170, 0.1);
+  border: 1px solid rgba(0, 212, 170, 0.3);
+  color: #00d4aa;
+  transition: all 0.2s;
+}
+.filter-chip button {
+  color: rgba(0, 212, 170, 0.5);
+  line-height: 1;
+  cursor: pointer;
+}
+.filter-chip button:hover {
+  color: #00d4aa;
+}
+</style>

@@ -41,7 +41,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   async function saveSettings() {
     try {
-      const settings: skill.AppSettings = {
+      const settings = skill.AppSettings.createFrom({
         skillhub_path: skillhubPath.value,
         theme: theme.value,
         auto_update_check: autoUpdateCheck.value,
@@ -49,7 +49,7 @@ export const useSettingsStore = defineStore('settings', () => {
         first_run: isFirstRun.value,
         custom_categories: customCategories.value,
         github_token: ''
-      }
+      })
       await App.SaveSettings(settings)
     } catch (e) {
       console.error('Failed to save settings:', e)

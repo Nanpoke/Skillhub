@@ -77,15 +77,15 @@ func (a *BaseAdapter) EnableSkill(skillName string, skillPath string) error {
 	// 目标路径
 	destPath := filepath.Join(a.skillsPath, skillName)
 
-	// 如果已存在，先删除
+	// 如果已存在，先安全删除（可能是链接或旧版复制目录）
 	if _, err := os.Stat(destPath); err == nil {
-		if err := os.RemoveAll(destPath); err != nil {
+		if err := utils.RemoveSkillLink(destPath); err != nil {
 			return err
 		}
 	}
 
-	// 复制整个目录（不跳过 .git）
-	return utils.CopyDir(skillPath, destPath, false)
+	// 创建链接（Windows=Junction，Unix=Symlink），源目录更新后自动生效
+	return utils.CreateSkillLink(destPath, skillPath)
 }
 
 func (a *BaseAdapter) DisableSkill(skillName string) error {
@@ -95,7 +95,7 @@ func (a *BaseAdapter) DisableSkill(skillName string) error {
 	}
 
 	destPath := filepath.Join(a.skillsPath, skillName)
-	return os.RemoveAll(destPath)
+	return utils.RemoveSkillLink(destPath)
 }
 
 func (a *BaseAdapter) IsSkillEnabled(skillName string) bool {

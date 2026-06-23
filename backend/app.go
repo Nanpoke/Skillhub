@@ -1608,3 +1608,72 @@ func (a *App) GetLastCheckTime() string {
 	}
 	return a.lastCheckTime.Format("2006-01-02 15:04:05")
 }
+
+// === 数据同步相关方法 ===
+
+// SyncStatus 同步状态
+type SyncStatus struct {
+	IsConfigured bool   `json:"is_configured"`
+	RemoteURL    string `json:"remote_url"`
+	Branch       string `json:"branch"`
+	LastPushAt   string `json:"last_push_at"`
+	LastPullAt   string `json:"last_pull_at"`
+	HasChanges   bool   `json:"has_changes"`
+}
+
+// InitSync 初始化同步仓库
+func (a *App) InitSync(remoteURL string, branch string) error {
+	settings, err := a.GetSettings()
+	if err != nil {
+		return err
+	}
+	return a.manager.InitSync(remoteURL, branch, settings.GitHubToken)
+}
+
+// SyncPush 推送本地变更到远程
+func (a *App) SyncPush(authorName string, message string) error {
+	settings, err := a.GetSettings()
+	if err != nil {
+		return err
+	}
+	return a.manager.SyncPush(authorName, message, settings.GitHubToken)
+}
+
+// SyncPull 从远程拉取更新
+func (a *App) SyncPull(authorName string) error {
+	settings, err := a.GetSettings()
+	if err != nil {
+		return err
+	}
+	return a.manager.SyncPull(authorName, settings.GitHubToken)
+}
+
+// GetSyncStatus 获取同步状态
+func (a *App) GetSyncStatus() (*SyncStatus, error) {
+	status, err := a.manager.GetSyncStatus()
+	if err != nil {
+		return nil, err
+	}
+	return &SyncStatus{
+		IsConfigured: status.IsConfigured,
+		RemoteURL:    status.RemoteURL,
+		Branch:       status.Branch,
+		LastPushAt:   status.LastPushAt,
+		LastPullAt:   status.LastPullAt,
+		HasChanges:   status.HasChanges,
+	}, nil
+}
+
+// RemoveSync 移除同步配置
+func (a *App) RemoveSync() error {
+	return a.manager.RemoveSync()
+}
+
+// GetMachineName 获取本机名称
+func (a *App) GetMachineName() (string, error) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return "SkillHub", nil
+	}
+	return hostname, nil
+}

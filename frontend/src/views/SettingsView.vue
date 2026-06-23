@@ -18,6 +18,25 @@ const addingTool = ref(false)
 const resetting = ref(false)
 const checkingUpdate = ref(false)
 
+// 数据同步相关
+const syncStatus = ref<{
+  is_configured: boolean
+  remote_url: string
+  branch: string
+  last_push_at: string
+  last_pull_at: string
+  has_changes: boolean
+} | null>(null)
+const syncRemoteURL = ref('')
+const syncBranch = ref('main')
+const syncMessage = ref('')
+const syncing = ref(false)
+const syncInitializing = ref(false)
+const showPushModal = ref(false)
+const loadingSyncStatus = ref(false)
+const pushStatus = ref<'idle' | 'pushing' | 'success' | 'error'>('idle')
+const pushErrorMsg = ref('')
+
 // 更新设置相关
 const autoUpdateCheck = ref(false)
 const updateFrequency = ref<'startup' | 'daily' | 'weekly'>('daily')
@@ -134,6 +153,7 @@ onMounted(async () => {
   await loadStorageInfo()
   await loadUpdateSettings()
   await skillStore.loadCategories() // 加载分类数据
+  await loadSyncStatus() // 加载同步状态
 })
 
 async function loadTools() {
@@ -414,6 +434,168 @@ async function checkForUpdates() {
     showNotification?.('检查更新失败: ' + e, 'error')
   } finally {
     checkingUpdate.value = false
+  }
+}
+
+// 加载同步状态
+async function loadSyncStatus() {
+  loadingSyncStatus.value = true
+  try {
+    syncStatus.value = await App.GetSyncStatus()
+  } catch (e) {
+    console.error('Failed to load sync status:', e)
+  } finally {
+    loadingSyncStatus.value = false
+  }
+}
+
+// 初始化同步
+async function initSync() {
+  if (!syncRemoteURL.value.trim()) {
+    showNotification?.('请输入远程仓库地址', 'warning')
+    return
+  }
+
+  syncInitializing.value = true
+  try {
+    await App.InitSync(syncRemoteURL.value.trim(), syncBranch.value.trim() || 'main')
+    showNotification?.('同步初始化成功', 'success')
+    await loadSyncStatus()
+  } catch (e) {
+    showNotification?.('初始化同步失败: ' + e, 'error')
+  } finally {
+    syncInitializing.value = false
+  }
+}
+
+// 打开推送弹窗
+function openPushModal() {
+  // 推送需要 GitHub Token 进行 git 认证
+  if (!githubToken.value.trim()) {
+    showNotification?.('推送需要 GitHub Token，请先在上方"更新设置"中配置（创建时需勾选 repo 权限）', 'warning', 6000)
+    return
+  }
+  syncMessage.value = ''
+  pushStatus.value = 'idle'
+  pushErrorMsg.value = ''
+  showPushModal.value = true
+}
+
+// 关闭推送弹窗
+function closePushModal() {
+  if (syncing.value) return
+  showPushModal.value = false
+}
+
+// 推送变更
+async function pushSync() {
+  // 防止重复提交
+  if (syncing.value) return
+  syncing.value = true
+  pushStatus.value = 'pushing'
+  pushErrorMsg.value = ''
+  try {
+    // 获取机器名
+    let machineName = ''
+    try {
+      machineName = await App.GetMachineName()
+    } catch (e) {
+      machineName = 'SkillHub'
+    }
+    await App.SyncPush(machineName, syncMessage.value.trim() || `Sync from ${machineName}`)
+    pushStatus.value = 'success'
+    showNotification?.('推送成功', 'success')
+    // 成功后半秒关闭弹窗，让用户看到成功状态
+    setTimeout(() => {
+      closePushModal()
+      loadSyncStatus()
+    }, 500)
+  } catch (e) {
+    pushStatus.value = 'error'
+    pushErrorMsg.value = String(e)
+    showNotification?.('推送失败: ' + e, 'error', 8000)
+  } finally {
+    syncing.value = false
+  }
+}
+
+// 拉取更新
+async function pullSync() {
+  const confirmed = showConfirm ? await showConfirm({
+    title: '拉取远程数据',
+    message: '拉取将合并远程数据到本地。冲突情况下以本地数据优先。是否继续？',
+    type: 'info',
+    confirmText: '拉取',
+    cancelText: '取消'
+  }) : confirm('确定要拉取远程数据吗？冲突情况下以本地数据优先。')
+
+  if (!confirmed) return
+
+  syncing.value = true
+  try {
+    let machineName = ''
+    try {
+      machineName = await App.GetMachineName()
+    } catch (e) {
+      machineName = 'SkillHub'
+    }
+    await App.SyncPull(machineName)
+    showNotification?.('拉取成功，请刷新列表查看更新', 'success')
+    // 刷新 skill 列表
+    await skillStore.loadSkills()
+    await loadSyncStatus()
+  } catch (e) {
+    showNotification?.('拉取失败: ' + e, 'error')
+  } finally {
+    syncing.value = false
+  }
+}
+
+// 断开同步
+async function removeSync() {
+  const confirmed = showConfirm ? await showConfirm({
+    title: '断开同步',
+    message: '断开后将移除远程仓库关联，本地数据不会丢失。是否继续？',
+    type: 'warning',
+    confirmText: '断开',
+    cancelText: '取消'
+  }) : confirm('确定要断开同步吗？本地数据不会丢失。')
+
+  if (!confirmed) return
+
+  try {
+    await App.RemoveSync()
+    syncRemoteURL.value = ''
+    syncBranch.value = 'main'
+    showNotification?.('同步已断开', 'success')
+    await loadSyncStatus()
+  } catch (e) {
+    showNotification?.('断开同步失败: ' + e, 'error')
+  }
+}
+
+// 更改远程地址
+async function changeRemoteURL() {
+  syncInitializing.value = true
+  try {
+    await App.InitSync(syncRemoteURL.value.trim(), syncBranch.value.trim() || 'main')
+    showNotification?.('远程地址已更新', 'success')
+    await loadSyncStatus()
+  } catch (e) {
+    showNotification?.('更新远程地址失败: ' + e, 'error')
+  } finally {
+    syncInitializing.value = false
+  }
+}
+
+// 格式化时间
+function formatSyncTime(timeStr: string): string {
+  if (!timeStr) return '从未'
+  try {
+    const date = new Date(timeStr)
+    return date.toLocaleString('zh-CN')
+  } catch {
+    return timeStr
   }
 }
 
@@ -713,9 +895,133 @@ EventsOn('updates:completed', async () => {
                   </button>
                 </div>
                 <p class="text-xs text-gray-500 mt-2">
-                  用于解除GitHub API限流，获取Token请访问
-                  <a href="https://github.com/settings/tokens" target="_blank" class="text-cyber-accent hover:underline">GitHub Settings</a>，仅需要勾选public_repo权限
+                  用于解除GitHub API限流及数据同步推送，获取Token请访问
+                  <a href="https://github.com/settings/tokens" target="_blank" class="text-cyber-accent hover:underline">GitHub Settings</a>，需勾选 repo 权限
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Data Sync -->
+        <div class="glass-panel rounded-2xl p-6 border border-cyber-border">
+          <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-3">
+            <i class="fas fa-cloud text-xl text-cyber-accent"></i>
+            数据同步
+          </h2>
+
+          <!-- 加载状态 -->
+          <div v-if="loadingSyncStatus" class="flex items-center justify-center py-4">
+            <i class="fas fa-spinner fa-spin text-gray-400 mr-2"></i>
+            <span class="text-sm text-gray-500">加载中...</span>
+          </div>
+
+          <!-- 未配置 -->
+          <div v-else-if="!syncStatus?.is_configured" class="space-y-3">
+            <p class="text-sm text-gray-400">配置 Git 远程仓库实现多电脑数据同步</p>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1.5">远程仓库地址</label>
+              <input
+                v-model="syncRemoteURL"
+                type="text"
+                placeholder="https://github.com/username/skillhub-sync.git"
+                class="w-full bg-cyber-dark border border-cyber-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyber-accent"
+              />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1.5">分支名</label>
+              <input
+                v-model="syncBranch"
+                type="text"
+                placeholder="main"
+                class="w-full bg-cyber-dark border border-cyber-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyber-accent"
+              />
+            </div>
+            <button
+              @click="initSync"
+              :disabled="syncInitializing"
+              class="btn-secondary px-4 py-2 text-sm"
+            >
+              <i v-if="syncInitializing" class="fas fa-spinner fa-spin mr-2"></i>
+              初始化同步
+            </button>
+            <p class="text-xs text-gray-600">
+              将同步 skills/、metadata/、git/ 目录。config/、history/、settings.json 等本地配置不会同步。
+            </p>
+          </div>
+
+          <!-- 已配置 -->
+          <div v-else class="space-y-4">
+            <!-- 远程信息 -->
+            <div class="p-4 rounded-xl bg-cyber-dark/50 border border-cyber-border space-y-2">
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-400">远程仓库</span>
+                <span class="font-mono text-white text-xs truncate max-w-[200px]">{{ syncStatus.remote_url }}</span>
+              </div>
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-400">分支</span>
+                <span class="font-mono text-white">{{ syncStatus.branch }}</span>
+              </div>
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-400">上次推送</span>
+                <span class="text-gray-300 text-xs">{{ formatSyncTime(syncStatus.last_push_at) }}</span>
+              </div>
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-400">上次拉取</span>
+                <span class="text-gray-300 text-xs">{{ formatSyncTime(syncStatus.last_pull_at) }}</span>
+              </div>
+              <div v-if="syncStatus.has_changes" class="mt-2 px-3 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                <p class="text-xs text-yellow-400 flex items-center gap-1.5">
+                  <i class="fas fa-exclamation-triangle"></i>
+                  有未同步的本地变更
+                </p>
+              </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="flex flex-wrap gap-2">
+              <button
+                @click="pullSync"
+                :disabled="syncing"
+                class="btn-secondary px-4 py-2 text-sm"
+              >
+                <i :class="['fas', syncing ? 'fa-spinner fa-spin' : 'fa-download', 'mr-1.5']"></i>
+                拉取
+              </button>
+              <button
+                @click="openPushModal"
+                :disabled="syncing"
+                class="btn-secondary px-4 py-2 text-sm"
+              >
+                <i class="fas fa-upload mr-1.5"></i>
+                推送
+              </button>
+              <button
+                @click="removeSync"
+                class="btn-frequency text-sm"
+              >
+                <i class="fas fa-unlink mr-1.5"></i>
+                断开同步
+              </button>
+            </div>
+
+            <!-- 远程地址修改 -->
+            <div class="pt-3 border-t border-cyber-border space-y-2">
+              <p class="text-xs text-gray-500">更改远程地址</p>
+              <div class="flex gap-2">
+                <input
+                  v-model="syncRemoteURL"
+                  type="text"
+                  :placeholder="syncStatus.remote_url"
+                  class="flex-1 bg-cyber-dark border border-cyber-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyber-accent"
+                />
+                <button
+                  @click="changeRemoteURL"
+                  :disabled="syncInitializing || !syncRemoteURL.trim()"
+                  class="px-3 py-2 rounded-lg text-sm bg-cyber-accent/10 border border-cyber-accent/30 text-cyber-accent hover:bg-cyber-accent/20 transition-all disabled:opacity-50"
+                >
+                  更新
+                </button>
               </div>
             </div>
           </div>
@@ -849,14 +1155,14 @@ EventsOn('updates:completed', async () => {
               >
               <i :class="['fas', checkingUpdate ? 'fa-spinner fa-spin' : 'fa-cloud-download-alt', 'text-gray-500 group-hover:text-cyber-accent transition-colors mb-2']"></i>
               <h4 class="text-sm font-medium text-white mb-1">检查更新</h4>
-              <p class="text-xs text-gray-500">当前 v1.3</p>
+              <p class="text-xs text-gray-500">当前 v1.4</p>
             </button>
           </div>
         </div>
 
         <!-- Footer Info -->
         <div class="text-center text-sm text-gray-600 space-y-1">
-          <p>SkillHub v1.3</p>
+          <p>SkillHub v1.4</p>
           <p>开源软件 · MIT License</p>
         </div>
       </div>
@@ -964,6 +1270,72 @@ EventsOn('updates:completed', async () => {
               </button>
             <button
               @click="closeAddCategoryModal"
+              class="modal-btn px-4 py-3 bg-cyber-panel border border-cyber-border text-sm"
+              >
+              取消
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Push Sync Modal -->
+    <div v-if="showPushModal" class="modal-overlay" @click.self="syncing ? null : closePushModal()">
+      <div class="modal-content glass-panel">
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h3 class="text-lg font-semibold text-white">推送到远程仓库</h3>
+          <button @click="closePushModal" :disabled="syncing" class="modal-close" :class="{ 'opacity-30 cursor-not-allowed': syncing }">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-400 mb-2">提交信息</label>
+            <input
+              v-model="syncMessage"
+              type="text"
+              placeholder="Sync from SkillHub"
+              class="modal-input w-full py-3 px-4 text-sm"
+              @keyup.enter="pushSync"
+            >
+            <p class="text-xs text-gray-500 mt-1">描述本次同步的内容</p>
+          </div>
+
+          <!-- 推送状态反馈 -->
+          <div v-if="pushStatus === 'pushing'" class="flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+            <i class="fas fa-spinner fa-spin text-blue-400 text-lg"></i>
+            <div>
+              <p class="text-sm text-blue-300 font-medium">正在推送到远程仓库...</p>
+              <p class="text-xs text-gray-500">请稍候，推送过程可能需要几秒到几分钟</p>
+            </div>
+          </div>
+          <div v-else-if="pushStatus === 'success'" class="flex items-center gap-3 px-4 py-3 rounded-lg bg-green-500/10 border border-green-500/20">
+            <i class="fas fa-check-circle text-green-400 text-lg"></i>
+            <p class="text-sm text-green-300 font-medium">推送成功</p>
+          </div>
+          <div v-else-if="pushStatus === 'error'" class="px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20">
+            <div class="flex items-center gap-3 mb-2">
+              <i class="fas fa-exclamation-circle text-red-400 text-lg"></i>
+              <p class="text-sm text-red-300 font-medium">推送失败</p>
+            </div>
+            <p class="text-xs text-red-400/80 leading-relaxed">{{ pushErrorMsg }}</p>
+          </div>
+
+          <div class="flex justify-end gap-3">
+            <button
+              @click="pushSync"
+              :disabled="syncing"
+              class="modal-btn px-4 py-3 bg-cyber-accent/10 border border-cyber-accent/30 text-sm"
+              >
+              <i v-if="syncing" class="fas fa-spinner fa-spin mr-2"></i>
+              推送
+            </button>
+            <button
+              @click="closePushModal"
+              :disabled="syncing"
               class="modal-btn px-4 py-3 bg-cyber-panel border border-cyber-border text-sm"
               >
               取消

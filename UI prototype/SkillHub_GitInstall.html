@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkillHub - Git 安装</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'monospace'],
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        cyber: {
+                            dark: '#0a0a0f',
+                            panel: '#12121a',
+                            border: '#1e1e2e',
+                            accent: '#00d4aa',
+                            accent2: '#a855f7',
+                        }
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0a0a0f 0%, #12121a 50%, #0f0f16 100%);
+            min-height: 100vh;
+        }
+
+        /* 玻璃态面板 - 渐变边框 */
+        .glass-panel {
+            position: relative;
+            background: rgba(26, 26, 36, 0.6);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+        }
+        .glass-panel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.12) 0%,
+                rgba(255, 255, 255, 0.04) 50%,
+                rgba(255, 255, 255, 0.12) 100%
+            );
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0.8;
+            transition: opacity 0.3s, background 0.3s;
+            pointer-events: none;
+        }
+        .glass-panel:hover::before {
+            opacity: 1;
+            background: linear-gradient(135deg,
+                rgba(0, 212, 170, 0.3) 0%,
+                rgba(168, 85, 247, 0.2) 100%
+            );
+        }
+        .glass-panel-no-hover:hover::before {
+            background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.12) 0%,
+                rgba(255, 255, 255, 0.04) 50%,
+                rgba(255, 255, 255, 0.12) 100%
+            );
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #00d4aa 0%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* 输入框 */
+        .input-field {
+            width: 100%;
+            background: rgba(10, 10, 15, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: #e5e7eb;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        .input-field:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #00d4aa;
+            box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.1),
+                        0 0 20px rgba(0, 212, 170, 0.1);
+        }
+
+        /* 主按钮 */
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4aa, #a855f7);
+            color: #0a0a0f;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(0, 212, 170, 0.25);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(0, 212, 170, 0.4),
+                        0 0 30px rgba(0, 212, 170, 0.2);
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 次要按钮 */
+        .btn-secondary {
+            background: rgba(18, 18, 26, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #9ca3af;
+            padding: 8px 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-secondary:hover {
+            border-color: rgba(0, 212, 170, 0.4);
+            color: #00d4aa;
+            background: rgba(0, 212, 170, 0.08);
+        }
+
+        /* 图标按钮 */
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            background: rgba(18, 18, 26, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #9ca3af;
+            transition: all 0.2s ease;
+        }
+        .btn-icon:hover {
+            border-color: rgba(0, 212, 170, 0.4);
+            color: #00d4aa;
+        }
+
+        /* 格式卡片 */
+        .format-card {
+            position: relative;
+            background: rgba(26, 26, 36, 0.6);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        .format-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.08) 0%,
+                rgba(255, 255, 255, 0.02) 50%,
+                rgba(255, 255, 255, 0.08) 100%
+            );
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            transition: background 0.3s;
+        }
+        .format-card:hover {
+            transform: translateX(5px);
+        }
+        .format-card:hover::before {
+            background: linear-gradient(135deg,
+                rgba(0, 212, 170, 0.3) 0%,
+                rgba(168, 85, 247, 0.2) 100%
+            );
+        }
+
+        /* 进度条 */
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+
+        /* 预览面板 */
+        .preview-panel {
+            position: relative;
+            background: rgba(10, 10, 15, 0.6);
+            border-radius: 12px;
+        }
+        .preview-panel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg,
+                rgba(0, 212, 170, 0.2) 0%,
+                rgba(0, 212, 170, 0.1) 100%
+            );
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+
+        /* 背景光晕 */
+        .bg-glow {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.15;
+            pointer-events: none;
+            animation: float 8s ease-in-out infinite;
+        }
+        .bg-glow-1 {
+            top: -200px;
+            right: -200px;
+            background: #a855f7;
+        }
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(30px, -30px); }
+        }
+    </style>
+</head>
+<body class="text-gray-300 font-sans">
+    <!-- Background Effects -->
+    <div class="bg-glow bg-glow-1"></div>
+
+    <!-- Main Container -->
+    <div class="relative z-10 min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="glass-panel glass-panel-no-hover sticky top-0 z-50 rounded-none">
+            <div class="max-w-4xl mx-auto px-6 py-4">
+                <div class="flex items-center gap-4 relative z-10">
+                    <button onclick="goBack()" class="btn-icon">
+                        <i class="fas fa-arrow-left text-sm"></i>
+                    </button>
+                    <div>
+                        <h1 class="text-xl font-bold font-mono">
+                            <span class="gradient-text">Git</span> <span class="text-white">安装</span>
+                        </h1>
+                        <p class="text-xs text-gray-500">从 GitHub 仓库安装 Skill</p>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex items-center justify-center p-6">
+            <div class="w-full max-w-2xl">
+
+                <!-- Input Section -->
+                <div class="glass-panel glass-panel-no-hover rounded-3xl p-8 mb-6">
+                    <div class="text-center mb-8 relative z-10">
+                        <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 flex items-center justify-center">
+                            <i class="fab fa-github text-4xl text-purple-400"></i>
+                        </div>
+                        <h2 class="text-2xl font-semibold text-white mb-2">输入 Git 仓库地址</h2>
+                        <p class="text-sm text-gray-500">支持 GitHub 仓库链接或简写格式</p>
+                    </div>
+
+                    <!-- URL Input -->
+                    <div class="space-y-4 mb-8 relative z-10">
+                        <div class="relative">
+                            <i class="fab fa-github absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg"></i>
+                            <input type="text"
+                                   id="gitUrl"
+                                   placeholder="https://github.com/vercel-labs/agent-skills"
+                                   class="input-field py-4 pl-12 pr-4 font-mono"
+                                   oninput="onUrlInput(this.value)">
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div class="flex items-center gap-3 text-xs text-gray-500">
+                            <span>快速填充:</span>
+                            <button onclick="fillExample('1')" class="btn-secondary text-xs py-1.5">示例 1</button>
+                            <button onclick="fillExample('2')" class="btn-secondary text-xs py-1.5">示例 2</button>
+                            <button onclick="fillExample('3')" class="btn-secondary text-xs py-1.5">示例 3</button>
+                        </div>
+                    </div>
+
+                    <!-- Parse Preview (Hidden by default) -->
+                    <div id="parsePreview" class="hidden mb-8 relative z-10">
+                        <div class="preview-panel p-5">
+                            <h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                                <i class="fas fa-check-circle text-cyber-accent"></i>
+                                解析成功
+                            </h3>
+                            <div class="space-y-3 text-sm">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-gray-500 w-20">仓库:</span>
+                                    <span class="font-mono text-white" id="previewRepo">vercel-labs/agent-skills</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-gray-500 w-20">作者:</span>
+                                    <span class="text-white" id="previewOwner">Vercel Labs</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-gray-500 w-20">路径:</span>
+                                    <span class="font-mono text-cyber-accent" id="previewPath">根目录 (所有 skills)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Install Button -->
+                    <div class="relative z-10">
+                        <button id="installBtn" onclick="startInstall()" disabled class="btn-primary w-full text-lg flex items-center justify-center gap-2">
+                            <i class="fas fa-download"></i>
+                            <span>解析并安装</span>
+                        </button>
+                    </div>
+
+                    <!-- Installing Progress (Hidden by default) -->
+                    <div id="installProgress" class="hidden mt-6 relative z-10">
+                        <div class="flex items-center justify-between text-sm mb-2">
+                            <span class="text-gray-400">正在下载...</span>
+                            <span class="text-cyber-accent font-mono" id="progressText">0%</span>
+                        </div>
+                        <div class="h-2 bg-cyber-dark rounded-full overflow-hidden">
+                            <div id="progressBar" class="progress-bar h-full bg-gradient-to-r from-cyber-accent to-cyber-accent2 rounded-full" style="width: 0%"></div>
+                        </div>
+                        <div class="mt-3 text-xs text-gray-500 font-mono" id="progressDetail">克隆仓库...</div>
+                    </div>
+                </div>
+
+                <!-- Supported Formats -->
+                <div class="glass-panel glass-panel-no-hover rounded-2xl p-6">
+                    <div class="relative z-10">
+                        <h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                            <i class="fas fa-info-circle text-cyber-accent"></i>
+                            支持的格式
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="format-card flex items-center gap-4 p-4">
+                                <div class="w-10 h-10 rounded-lg bg-cyber-panel flex items-center justify-center">
+                                    <i class="fas fa-link text-gray-400"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-white">完整 URL</p>
+                                    <code class="text-xs text-gray-500 font-mono">https://github.com/user/repo</code>
+                                </div>
+                            </div>
+
+                            <div class="format-card flex items-center gap-4 p-4">
+                                <div class="w-10 h-10 rounded-lg bg-cyber-panel flex items-center justify-center">
+                                    <i class="fas fa-compress-alt text-gray-400"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-white">GitHub 简写</p>
+                                    <code class="text-xs text-gray-500 font-mono">user/repo</code>
+                                </div>
+                            </div>
+
+                            <div class="format-card flex items-center gap-4 p-4">
+                                <div class="w-10 h-10 rounded-lg bg-cyber-panel flex items-center justify-center">
+                                    <i class="fas fa-folder-tree text-gray-400"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-white">指定子路径</p>
+                                    <code class="text-xs text-gray-500 font-mono">.../tree/main/skills/my-skill</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let isParsing = false;
+
+        function onUrlInput(value) {
+            const installBtn = document.getElementById('installBtn');
+            const parsePreview = document.getElementById('parsePreview');
+
+            if (value.trim().length > 0) {
+                installBtn.disabled = false;
+                if (value.includes('github.com') || value.includes('/')) {
+                    parsePreview.classList.remove('hidden');
+                    parseGitUrl(value);
+                }
+            } else {
+                installBtn.disabled = true;
+                parsePreview.classList.add('hidden');
+            }
+        }
+
+        function parseGitUrl(url) {
+            let repo = url;
+            if (url.includes('github.com')) {
+                const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+                if (match) {
+                    document.getElementById('previewRepo').textContent = `${match[1]}/${match[2]}`;
+                    document.getElementById('previewOwner').textContent = match[1];
+                }
+            } else if (url.includes('/')) {
+                document.getElementById('previewRepo').textContent = url;
+                document.getElementById('previewOwner').textContent = url.split('/')[0];
+            }
+
+            if (url.includes('/tree/')) {
+                const pathMatch = url.match(/\/tree\/[^\/]+\/(.+)/);
+                if (pathMatch) {
+                    document.getElementById('previewPath').textContent = pathMatch[1];
+                }
+            } else {
+                document.getElementById('previewPath').textContent = '根目录 (所有 skills)';
+            }
+        }
+
+        function fillExample(type) {
+            const examples = {
+                '1': 'https://github.com/vercel-labs/agent-skills',
+                '2': 'anthropics/skills',
+                '3': 'https://github.com/vercel-labs/agent-skills/tree/main/skills/frontend-design'
+            };
+
+            const input = document.getElementById('gitUrl');
+            input.value = examples[type];
+            onUrlInput(examples[type]);
+        }
+
+        function startInstall() {
+            const installBtn = document.getElementById('installBtn');
+            const progressDiv = document.getElementById('installProgress');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const progressDetail = document.getElementById('progressDetail');
+
+            installBtn.classList.add('hidden');
+            progressDiv.classList.remove('hidden');
+
+            const steps = [
+                { progress: 20, text: '20%', detail: '克隆仓库...' },
+                { progress: 40, text: '40%', detail: '解析目录结构...' },
+                { progress: 60, text: '60%', detail: '下载 Skill 文件...' },
+                { progress: 80, text: '80%', detail: '验证文件完整性...' },
+                { progress: 100, text: '100%', detail: '安装完成!' }
+            ];
+
+            let currentStep = 0;
+            const interval = setInterval(() => {
+                if (currentStep >= steps.length) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        alert('安装成功！Skill 已添加到您的库中。');
+                        goBack();
+                    }, 500);
+                    return;
+                }
+
+                const step = steps[currentStep];
+                progressBar.style.width = step.progress + '%';
+                progressText.textContent = step.text;
+                progressDetail.textContent = step.detail;
+
+                currentStep++;
+            }, 800);
+        }
+
+        function goBack() {
+            alert('返回上级页面');
+        }
+    </script>
+</body>
+</html>

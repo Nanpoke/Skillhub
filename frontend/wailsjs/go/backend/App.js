@@ -70,6 +70,10 @@ export function GetLastCheckTime() {
   return window['go']['backend']['App']['GetLastCheckTime']();
 }
 
+export function GetMachineName() {
+  return window['go']['backend']['App']['GetMachineName']();
+}
+
 export function GetMigrationInfo(arg1) {
   return window['go']['backend']['App']['GetMigrationInfo'](arg1);
 }
@@ -98,6 +102,10 @@ export function GetStorageInfo() {
   return window['go']['backend']['App']['GetStorageInfo']();
 }
 
+export function GetSyncStatus() {
+  return window['go']['backend']['App']['GetSyncStatus']();
+}
+
 export function GetToolAdapters() {
   return window['go']['backend']['App']['GetToolAdapters']();
 }
@@ -108,6 +116,10 @@ export function GetUpdateFrequency() {
 
 export function ImportData(arg1, arg2, arg3) {
   return window['go']['backend']['App']['ImportData'](arg1, arg2, arg3);
+}
+
+export function InitSync(arg1, arg2) {
+  return window['go']['backend']['App']['InitSync'](arg1, arg2);
 }
 
 export function InitializeWizard(arg1, arg2, arg3) {
@@ -148,6 +160,10 @@ export function ReadSkillFile(arg1, arg2) {
 
 export function RemoveCustomTool(arg1) {
   return window['go']['backend']['App']['RemoveCustomTool'](arg1);
+}
+
+export function RemoveSync() {
+  return window['go']['backend']['App']['RemoveSync']();
 }
 
 export function ResetAllData() {
@@ -200,6 +216,14 @@ export function StartUpdateScheduler() {
 
 export function StopUpdateScheduler() {
   return window['go']['backend']['App']['StopUpdateScheduler']();
+}
+
+export function SyncPull(arg1) {
+  return window['go']['backend']['App']['SyncPull'](arg1);
+}
+
+export function SyncPush(arg1, arg2) {
+  return window['go']['backend']['App']['SyncPush'](arg1, arg2);
 }
 
 export function ToggleSkill(arg1, arg2) {

@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkillHub - 设置</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'monospace'],
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        cyber: {
+                            dark: '#0a0a0f',
+                            panel: '#12121a',
+                            border: '#1e1e2e',
+                            accent: '#00d4aa',
+                            accent2: '#a855f7',
+                            glow: 'rgba(0, 212, 170, 0.15)',
+                        }
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0a0a0f 0%, #12121a 50%, #0f0f16 100%);
+            min-height: 100vh;
+        }
+        /* 玻璃态面板 - 渐变边框 */
+        .glass-panel {
+            position: relative;
+            background: rgba(26, 26, 36, 0.6);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+        }
+        .glass-panel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.12) 0%,
+                rgba(255, 255, 255, 0.04) 50%,
+                rgba(255, 255, 255, 0.12) 100%
+            );
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0.8;
+            transition: opacity 0.3s, background 0.3s;
+            pointer-events: none;
+        }
+        .glass-panel:hover::before {
+            opacity: 1;
+            background: linear-gradient(135deg,
+                rgba(0, 212, 170, 0.3) 0%,
+                rgba(168, 85, 247, 0.2) 100%
+            );
+        }
+        .glass-panel-no-hover:hover::before {
+            background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.12) 0%,
+                rgba(255, 255, 255, 0.04) 50%,
+                rgba(255, 255, 255, 0.12) 100%
+            );
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #00d4aa 0%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .setting-card {
+            position: relative;
+        }
+        /* 图标按钮 */
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            background: rgba(18, 18, 26, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #9ca3af;
+            transition: all 0.2s ease;
+        }
+        .btn-icon:hover {
+            border-color: rgba(0, 212, 170, 0.4);
+            color: #00d4aa;
+        }
+        /* 次要按钮 */
+        .btn-secondary {
+            background: rgba(18, 18, 26, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #9ca3af;
+            padding: 12px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-secondary:hover {
+            border-color: rgba(0, 212, 170, 0.4);
+            color: #00d4aa;
+            background: rgba(0, 212, 170, 0.08);
+        }
+        /* 频率按钮 */
+        .btn-frequency {
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: rgba(18, 18, 26, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #9ca3af;
+        }
+        .btn-frequency:hover {
+            border-color: rgba(0, 212, 170, 0.4);
+            color: #00d4aa;
+        }
+        .btn-frequency.active {
+            background: linear-gradient(135deg, #00d4aa, #a855f7);
+            color: #0a0a0f;
+            font-weight: 600;
+            border: none;
+        }
+        .btn-frequency.active:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 212, 170, 0.25);
+        }
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 26px;
+            background: #1e1e2e;
+            border-radius: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        .toggle-switch:hover {
+            border-color: rgba(0, 212, 170, 0.3);
+        }
+        .toggle-switch.active {
+            background: linear-gradient(135deg, #00d4aa, #00b894);
+            box-shadow: 0 0 20px rgba(0, 212, 170, 0.3);
+        }
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .toggle-switch.active::after {
+            transform: translateX(22px);
+        }
+        /* Radio Button */
+        .radio-btn {
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .radio-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.08) 0%,
+                rgba(255, 255, 255, 0.02) 100%
+            );
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            transition: background 0.3s;
+        }
+        .radio-btn:hover::before {
+            background: linear-gradient(135deg,
+                rgba(0, 212, 170, 0.3) 0%,
+                rgba(168, 85, 247, 0.2) 100%
+            );
+        }
+        .radio-btn.selected {
+            border-color: #00d4aa;
+            background: rgba(0, 212, 170, 0.1);
+        }
+        .radio-btn.selected .radio-circle {
+            border-color: #00d4aa;
+            background: #00d4aa;
+            box-shadow: 0 0 10px rgba(0, 212, 170, 0.3);
+        }
+        .radio-btn.selected .radio-circle::after {
+            transform: scale(1);
+        }
+        .radio-circle {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #4b5563;
+            border-radius: 50%;
+            position: relative;
+            transition: all 0.3s;
+        }
+        .radio-circle::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            width: 8px;
+            height: 8px;
+            background: #0a0a0f;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+        /* Background Effects */
+        .bg-glow {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.1;
+            pointer-events: none;
+        }
+        .bg-glow-1 {
+            top: -200px;
+            left: -200px;
+            background: #00d4aa;
+        }
+        .bg-glow-2 {
+            bottom: -200px;
+            right: -200px;
+            background: #a855f7;
+        }
+    </style>
+</head>
+<body class="text-gray-300 font-sans">
+    <!-- Background Effects -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <!-- Main Container -->
+    <div class="relative z-10 min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="glass-panel glass-panel-no-hover sticky top-0 z-50 rounded-none border-b border-cyber-border">
+            <div class="max-w-4xl mx-auto px-6 py-4 relative z-10">
+                <div class="flex items-center gap-4">
+                    <button onclick="goBack()" class="btn-icon">
+                        <i class="fas fa-arrow-left text-sm"></i>
+                    </button>
+                    <div>
+                        <h1 class="text-xl font-bold font-mono">
+                            <span class="gradient-text">设置</span>
+                        </h1>
+                        <p class="text-xs text-gray-500">配置 SkillHub 外观和行为</p>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex items-center justify-center p-6">
+            <div class="w-full max-w-2xl space-y-6">
+                
+                <!-- Appearance Settings -->
+                <div class="glass-panel setting-card rounded-2xl p-6 relative z-10">
+                    <h2 class="text-lg font-semibold text-white mb-5 flex items-center gap-3">
+                        <i class="fas fa-palette text-cyber-accent"></i>
+                        外观
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <label class="text-sm text-gray-400 block mb-3">主题模式</label>
+                        <div class="grid grid-cols-3 gap-3">
+                            <button onclick="selectTheme('system', this)" class="radio-btn selected flex items-center gap-3 p-4 rounded-xl bg-cyber-dark border border-cyber-border cursor-pointer">
+                                <div class="radio-circle"></div>
+                                <div class="text-left">
+                                    <p class="text-sm font-medium text-white">跟随系统</p>
+                                    <p class="text-xs text-gray-500">自动切换</p>
+                                </div>
+                            </button>
+                            
+                            <button onclick="selectTheme('dark', this)" class="radio-btn flex items-center gap-3 p-4 rounded-xl bg-cyber-dark border border-cyber-border cursor-pointer">
+                                <div class="radio-circle"></div>
+                                <div class="text-left">
+                                    <p class="text-sm font-medium text-white">暗黑模式</p>
+                                    <p class="text-xs text-gray-500">深色主题</p>
+                                </div>
+                            </button>
+                            
+                            <button onclick="selectTheme('light', this)" class="radio-btn flex items-center gap-3 p-4 rounded-xl bg-cyber-dark border border-cyber-border cursor-pointer">
+                                <div class="radio-circle"></div>
+                                <div class="text-left">
+                                    <p class="text-sm font-medium text-white">亮色模式</p>
+                                    <p class="text-xs text-gray-500">浅色主题</p>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Update Settings -->
+                <div class="glass-panel setting-card rounded-2xl p-6 relative z-10">
+                    <h2 class="text-lg font-semibold text-white mb-5 flex items-center gap-3">
+                        <i class="fas fa-sync text-cyber-accent2"></i>
+                        更新
+                    </h2>
+                    
+                    <div class="space-y-5">
+                        <!-- Auto Check Toggle -->
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-white">自动检查更新</p>
+                                <p class="text-xs text-gray-500 mt-1">启动时自动检查 Skill 更新</p>
+                            </div>
+                            <div class="toggle-switch active" onclick="this.classList.toggle('active')"></div>
+                        </div>
+
+                        <!-- Frequency -->
+                        <div>
+                            <label class="text-sm text-gray-400 block mb-3">检查频率</label>
+                            <div class="flex gap-3">
+                                <button onclick="selectFrequency(this)" class="btn-frequency">每次启动</button>
+                                <button onclick="selectFrequency(this)" class="btn-frequency active">每天</button>
+                                <button onclick="selectFrequency(this)" class="btn-frequency">每周</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Storage Settings -->
+                <div class="glass-panel setting-card rounded-2xl p-6 relative z-10">
+                    <h2 class="text-lg font-semibold text-white mb-5 flex items-center gap-3">
+                        <i class="fas fa-hdd text-cyber-accent"></i>
+                        存储
+                    </h2>
+                    
+                    <div class="space-y-5">
+                        <div>
+                            <label class="text-sm text-gray-400 block mb-2">SkillHub 路径</label>
+                            <div class="flex gap-3">
+                                <code class="flex-1 px-4 py-3 rounded-xl bg-cyber-dark border border-cyber-border text-sm font-mono text-gray-300">~/.skill-hub/</code>
+                                <button onclick="changePath()" class="btn-secondary">
+                                    更改
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-4 rounded-xl bg-cyber-dark/50 border border-cyber-border">
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-gray-400">存储空间</span>
+                                <span class="font-mono text-white">145 MB / 12 Skills</span>
+                            </div>
+                            <div class="mt-3 h-2 bg-cyber-dark rounded-full overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-cyber-accent to-cyber-accent2 rounded-full" style="width: 15%"></div>
+                            </div>
+                            <p class="mt-2 text-xs text-gray-500">磁盘空间充足</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Management -->
+                <div class="glass-panel setting-card rounded-2xl p-6 relative z-10">
+                    <h2 class="text-lg font-semibold text-white mb-5 flex items-center gap-3">
+                        <i class="fas fa-database text-cyber-accent2"></i>
+                        数据管理
+                    </h2>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="viewHistory()" class="p-4 rounded-xl bg-cyber-dark border border-cyber-border hover:border-cyber-accent/30 hover:bg-cyber-accent/5 transition-all text-left group">
+                            <i class="fas fa-history text-xl text-gray-500 group-hover:text-cyber-accent transition-colors mb-2"></i>
+                            <p class="text-sm font-medium text-white">查看历史</p>
+                            <p class="text-xs text-gray-500 mt-1">最近 10 天操作</p>
+                        </button>
+
+                        <button onclick="exportImport()" class="p-4 rounded-xl bg-cyber-dark border border-cyber-border hover:border-cyber-accent/30 hover:bg-cyber-accent/5 transition-all text-left group">
+                            <i class="fas fa-file-export text-xl text-gray-500 group-hover:text-cyber-accent transition-colors mb-2"></i>
+                            <p class="text-sm font-medium text-white">导入/导出</p>
+                            <p class="text-xs text-gray-500 mt-1">备份配置</p>
+                        </button>
+
+                        <button onclick="resetData()" class="p-4 rounded-xl bg-cyber-dark border border-cyber-border hover:border-red-500/30 hover:bg-red-500/5 transition-all text-left group">
+                            <i class="fas fa-trash-alt text-xl text-gray-500 group-hover:text-red-400 transition-colors mb-2"></i>
+                            <p class="text-sm font-medium text-white">重置数据</p>
+                            <p class="text-xs text-gray-500 mt-1">清除所有配置</p>
+                        </button>
+
+                        <button onclick="checkUpdate()" class="p-4 rounded-xl bg-cyber-dark border border-cyber-border hover:border-cyber-accent/30 hover:bg-cyber-accent/5 transition-all text-left group">
+                            <i class="fas fa-cloud-download-alt text-xl text-gray-500 group-hover:text-cyber-accent transition-colors mb-2"></i>
+                            <p class="text-sm font-medium text-white">检查更新</p>
+                            <p class="text-xs text-gray-500 mt-1">当前 v1.0.0</p>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Footer Info -->
+                <div class="text-center text-sm text-gray-600 space-y-1">
+                    <p>SkillHub v1.0.0 · Build 2024.01.15</p>
+                    <p>开源软件 · MIT License</p>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let currentTheme = 'system';
+
+        function selectTheme(theme, element) {
+            // Remove selected from all
+            document.querySelectorAll('.radio-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            
+            // Add selected to clicked
+            element.classList.add('selected');
+            currentTheme = theme;
+        }
+
+        function selectFrequency(btn) {
+            // Remove active from all buttons in the same group
+            const buttons = btn.parentElement.querySelectorAll('button');
+            buttons.forEach(b => {
+                b.classList.remove('active');
+            });
+
+            // Add active to clicked
+            btn.classList.add('active');
+        }
+
+        function changePath() {
+            alert('打开文件夹选择对话框，迁移 SkillHub 存储位置');
+        }
+
+        function viewHistory() {
+            alert('跳转到历史记录页面');
+        }
+
+        function exportImport() {
+            alert('跳转到导入/导出页面');
+        }
+
+        function resetData() {
+            if (confirm('确定要重置所有数据吗？此操作不可恢复！')) {
+                alert('数据已重置');
+            }
+        }
+
+        function checkUpdate() {
+            alert('正在检查更新...\n当前已是最新版本 v1.0.0');
+        }
+
+        function goBack() {
+            alert('返回主界面');
+        }
+    </script>
+</body>
+</html>

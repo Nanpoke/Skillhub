@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkillHub - 历史记录</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'monospace'],
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        cyber: {
+                            dark: '#0a0a0f',
+                            panel: '#12121a',
+                            border: '#1e1e2e',
+                            accent: '#00d4aa',
+                            accent2: '#a855f7',
+                            glow: 'rgba(0, 212, 170, 0.15)',
+                        }
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0a0a0f 0%, #12121a 50%, #0f0f16 100%);
+            min-height: 100vh;
+        }
+        /* 玻璃态面板 - 渐变边框 */
+        .glass-panel {
+            position: relative;
+            background: rgba(26, 26, 36, 0.6);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+        }
+        .glass-panel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.12) 0%,
+                rgba(255, 255, 255, 0.04) 50%,
+                rgba(255, 255, 255, 0.12) 100%
+            );
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0.8;
+            transition: opacity 0.3s, background 0.3s;
+            pointer-events: none;
+        }
+        .glass-panel:hover::before {
+            opacity: 1;
+            background: linear-gradient(135deg,
+                rgba(0, 212, 170, 0.3) 0%,
+                rgba(168, 85, 247, 0.2) 100%
+            );
+        }
+        .glass-panel-no-hover:hover::before {
+            background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.12) 0%,
+                rgba(255, 255, 255, 0.04) 50%,
+                rgba(255, 255, 255, 0.12) 100%
+            );
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #00d4aa 0%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        /* 图标按钮 */
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            background: rgba(18, 18, 26, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #9ca3af;
+            transition: all 0.2s ease;
+        }
+        .btn-icon:hover {
+            border-color: rgba(0, 212, 170, 0.4);
+            color: #00d4aa;
+        }
+        /* 次要按钮 */
+        .btn-secondary {
+            background: rgba(18, 18, 26, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #9ca3af;
+            padding: 8px 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-secondary:hover {
+            border-color: rgba(0, 212, 170, 0.4);
+            color: #00d4aa;
+            background: rgba(0, 212, 170, 0.08);
+        }
+        .btn-secondary.danger:hover {
+            border-color: rgba(239, 68, 68, 0.4);
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.08);
+        }
+        /* History Item */
+        .history-item {
+            position: relative;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+        .history-item::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.06) 0%,
+                rgba(255, 255, 255, 0.02) 100%
+            );
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            transition: background 0.3s;
+        }
+        .history-item:hover {
+            border-left-color: #00d4aa;
+            background: rgba(0, 212, 170, 0.05);
+        }
+        .history-item:hover::before {
+            background: linear-gradient(135deg,
+                rgba(0, 212, 170, 0.2) 0%,
+                rgba(0, 212, 170, 0.05) 100%
+            );
+        }
+        .history-item.install { border-left-color: #00d4aa; }
+        .history-item.update { border-left-color: #3b82f6; }
+        .history-item.delete { border-left-color: #ef4444; }
+        .history-item.enable { border-left-color: #10b981; }
+        .history-item.disable { border-left-color: #6b7280; }
+
+        .timeline-line {
+            position: absolute;
+            left: 24px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom, #00d4aa, #a855f7);
+            opacity: 0.3;
+        }
+        /* Background Effects */
+        .bg-glow {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.1;
+            pointer-events: none;
+        }
+        .bg-glow-1 {
+            top: -200px;
+            right: -200px;
+            background: #a855f7;
+        }
+    </style>
+</head>
+<body class="text-gray-300 font-sans">
+    <!-- Background Effects -->
+    <div class="bg-glow bg-glow-1"></div>
+
+    <!-- Main Container -->
+    <div class="relative z-10 min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="glass-panel glass-panel-no-hover sticky top-0 z-50 rounded-none border-b border-cyber-border">
+            <div class="max-w-4xl mx-auto px-6 py-4 relative z-10">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <button onclick="goBack()" class="btn-icon">
+                            <i class="fas fa-arrow-left text-sm"></i>
+                        </button>
+                        <div>
+                            <h1 class="text-xl font-bold font-mono">
+                                <span class="gradient-text">历史</span> <span class="text-white">记录</span>
+                            </h1>
+                            <p class="text-xs text-gray-500">最近 10 天的操作记录</p>
+                        </div>
+                    </div>
+                    
+                    <button onclick="clearHistory()" class="btn-secondary danger text-sm flex items-center gap-2">
+                        <i class="fas fa-trash-alt"></i>
+                        <span>清空历史</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-6">
+            <div class="max-w-4xl mx-auto">
+                
+                <!-- Stats Summary -->
+                <div class="glass-panel rounded-2xl p-6 mb-6 relative z-10">
+                    <div class="grid grid-cols-5 gap-4 text-center">
+                        <div>
+                            <p class="text-2xl font-bold font-mono text-cyber-accent">3</p>
+                            <p class="text-xs text-gray-500 mt-1">安装</p>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold font-mono text-blue-400">2</p>
+                            <p class="text-xs text-gray-500 mt-1">更新</p>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold font-mono text-red-400">1</p>
+                            <p class="text-xs text-gray-500 mt-1">删除</p>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold font-mono text-green-400">5</p>
+                            <p class="text-xs text-gray-500 mt-1">启用</p>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold font-mono text-gray-400">2</p>
+                            <p class="text-xs text-gray-500 mt-1">禁用</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Timeline -->
+                <div class="glass-panel rounded-2xl p-6 relative z-10">
+                    <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-6">今天</h2>
+                    
+                    <div class="relative space-y-4">
+                        <div class="timeline-line"></div>
+                        
+                        <!-- Install Item -->
+                        <div class="history-item install relative flex items-start gap-4 p-4 rounded-xl bg-cyber-dark/50">
+                            <div class="relative z-10 w-12 h-12 rounded-full bg-cyber-accent/20 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-download text-cyber-accent"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-3 mb-1">
+                                    <span class="text-sm font-medium text-white">安装</span>
+                                    <span class="font-mono text-sm text-cyber-accent">frontend-design</span>
+                                </div>
+                                <p class="text-xs text-gray-500">来源: GitHub (anthropics/skills)</p>
+                                <p class="text-xs text-gray-600 mt-2">14:32</p>
+                            </div>
+                        </div>
+
+                        <!-- Enable Item -->
+                        <div class="history-item enable relative flex items-start gap-4 p-4 rounded-xl bg-cyber-dark/50">
+                            <div class="relative z-10 w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-plug text-green-400"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-3 mb-1">
+                                    <span class="text-sm font-medium text-white">启用</span>
+                                    <span class="font-mono text-sm text-cyber-accent">vercel-react-best-practices</span>
+                                </div>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="text-xs text-gray-500">工具:</span>
+                                    <span class="px-2 py-0.5 rounded bg-cyber-accent/10 text-xs text-cyber-accent">Claude Code</span>
+                                    <span class="px-2 py-0.5 rounded bg-cyber-accent/10 text-xs text-cyber-accent">Cursor</span>
+                                </div>
+                                <p class="text-xs text-gray-600 mt-2">14:30</p>
+                            </div>
+                        </div>
+
+                        <!-- Update Item -->
+                        <div class="history-item update relative flex items-start gap-4 p-4 rounded-xl bg-cyber-dark/50">
+                            <div class="relative z-10 w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-sync-alt text-blue-400"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-3 mb-1">
+                                    <span class="text-sm font-medium text-white">更新</span>
+                                    <span class="font-mono text-sm text-cyber-accent">web-design-guidelines</span>
+                                </div>
+                                <p class="text-xs text-gray-500">v1.0.0 → v1.2.0</p>
+                                <p class="text-xs text-gray-600 mt-2">11:15</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-6 mt-8">昨天</h2>
+                    
+                    <div class="relative space-y-4">
+                        <div class="timeline-line"></div>
+                        
+                        <!-- Disable Item -->
+                        <div class="history-item disable relative flex items-start gap-4 p-4 rounded-xl bg-cyber-dark/50">
+                            <div class="relative z-10 w-12 h-12 rounded-full bg-gray-500/20 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-power-off text-gray-400"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-3 mb-1">
+                                    <span class="text-sm font-medium text-white">禁用</span>
+                                    <span class="font-mono text-sm text-cyber-accent">frontend-design</span>
+                                </div>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="text-xs text-gray-500">工具:</span>
+                                    <span class="px-2 py-0.5 rounded bg-gray-700 text-xs text-gray-400">OpenCode</span>
+                                </div>
+                                <p class="text-xs text-gray-600 mt-2">16:45</p>
+                            </div>
+                        </div>
+
+                        <!-- Delete Item -->
+                        <div class="history-item delete relative flex items-start gap-4 p-4 rounded-xl bg-cyber-dark/50">
+                            <div class="relative z-10 w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-trash-alt text-red-400"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-3 mb-1">
+                                    <span class="text-sm font-medium text-white">删除</span>
+                                    <span class="font-mono text-sm text-gray-400 line-through">old-skill</span>
+                                </div>
+                                <p class="text-xs text-gray-500">已完全移除</p>
+                                <p class="text-xs text-gray-600 mt-2">09:20</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-6 mt-8">2024-01-13</h2>
+                    
+                    <div class="relative space-y-4">
+                        <div class="timeline-line"></div>
+                        
+                        <!-- Install Item -->
+                        <div class="history-item install relative flex items-start gap-4 p-4 rounded-xl bg-cyber-dark/50">
+                            <div class="relative z-10 w-12 h-12 rounded-full bg-cyber-accent/20 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-download text-cyber-accent"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-3 mb-1">
+                                    <span class="text-sm font-medium text-white">安装</span>
+                                    <span class="font-mono text-sm text-cyber-accent">skill-creator</span>
+                                </div>
+                                <p class="text-xs text-gray-500">来源: skills.sh</p>
+                                <p class="text-xs text-gray-600 mt-2">20:15</p>
+                            </div>
+                        </div>
+
+                        <!-- Install Item -->
+                        <div class="history-item install relative flex items-start gap-4 p-4 rounded-xl bg-cyber-dark/50">
+                            <div class="relative z-10 w-12 h-12 rounded-full bg-cyber-accent/20 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-download text-cyber-accent"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-3 mb-1">
+                                    <span class="text-sm font-medium text-white">安装</span>
+                                    <span class="font-mono text-sm text-cyber-accent">browser-use</span>
+                                </div>
+                                <p class="text-xs text-gray-500">来源: GitHub (browser-use/browser-use)</p>
+                                <p class="text-xs text-gray-600 mt-2">18:30</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Footer -->
+                <div class="mt-6 text-center">
+                    <p class="text-xs text-gray-600">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        历史记录仅保留最近 10 天
+                    </p>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function clearHistory() {
+            if (confirm('确定要清空所有历史记录吗？')) {
+                alert('历史记录已清空');
+            }
+        }
+
+        function goBack() {
+            alert('返回设置页面');
+        }
+    </script>
+</body>
+</html>

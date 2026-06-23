@@ -179,6 +179,28 @@ export namespace backend {
 	        this.skills_path = source["skills_path"];
 	    }
 	}
+	export class SyncStatus {
+	    is_configured: boolean;
+	    remote_url: string;
+	    branch: string;
+	    last_push_at: string;
+	    last_pull_at: string;
+	    has_changes: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new SyncStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.is_configured = source["is_configured"];
+	        this.remote_url = source["remote_url"];
+	        this.branch = source["branch"];
+	        this.last_push_at = source["last_push_at"];
+	        this.last_pull_at = source["last_pull_at"];
+	        this.has_changes = source["has_changes"];
+	    }
+	}
 	export class UpdateInfo {
 	    current_version: string;
 	    latest_version: string;
@@ -208,6 +230,24 @@ export namespace backend {
 
 export namespace skill {
 	
+	export class SyncConfig {
+	    remote_url: string;
+	    branch: string;
+	    last_push_at: string;
+	    last_pull_at: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SyncConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.remote_url = source["remote_url"];
+	        this.branch = source["branch"];
+	        this.last_push_at = source["last_push_at"];
+	        this.last_pull_at = source["last_pull_at"];
+	    }
+	}
 	export class AppSettings {
 	    skillhub_path: string;
 	    theme: string;
@@ -216,6 +256,7 @@ export namespace skill {
 	    first_run: boolean;
 	    custom_categories: string[];
 	    github_token: string;
+	    sync?: SyncConfig;
 	
 	    static createFrom(source: any = {}) {
 	        return new AppSettings(source);
@@ -230,7 +271,26 @@ export namespace skill {
 	        this.first_run = source["first_run"];
 	        this.custom_categories = source["custom_categories"];
 	        this.github_token = source["github_token"];
+	        this.sync = this.convertValues(source["sync"], SyncConfig);
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class CategoryInfo {
 	    name: string;
@@ -483,6 +543,7 @@ export namespace skill {
 		    return a;
 		}
 	}
+	
 	
 	
 	export class ToolInfo {

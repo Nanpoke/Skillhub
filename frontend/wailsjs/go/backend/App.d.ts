@@ -37,6 +37,8 @@ export function GetExportInfo():Promise<backend.ExportInfo>;
 
 export function GetLastCheckTime():Promise<string>;
 
+export function GetMachineName():Promise<string>;
+
 export function GetMigrationInfo(arg1:string):Promise<backend.PathMigrationInfo>;
 
 export function GetOperationLogs():Promise<Array<skill.OperationLog>>;
@@ -51,11 +53,15 @@ export function GetSkills():Promise<Array<skill.Skill>>;
 
 export function GetStorageInfo():Promise<backend.StorageInfo>;
 
+export function GetSyncStatus():Promise<backend.SyncStatus>;
+
 export function GetToolAdapters():Promise<Array<Record<string, any>>>;
 
 export function GetUpdateFrequency():Promise<string>;
 
 export function ImportData(arg1:string,arg2:boolean,arg3:boolean):Promise<void>;
+
+export function InitSync(arg1:string,arg2:string):Promise<void>;
 
 export function InitializeWizard(arg1:string,arg2:Array<string>,arg3:Array<skill.CustomTool>):Promise<void>;
 
@@ -76,6 +82,8 @@ export function PreviewImportFile(arg1:string):Promise<backend.ImportPreview>;
 export function ReadSkillFile(arg1:string,arg2:string):Promise<string>;
 
 export function RemoveCustomTool(arg1:string):Promise<void>;
+
+export function RemoveSync():Promise<void>;
 
 export function ResetAllData():Promise<void>;
 
@@ -102,6 +110,10 @@ export function SetUpdateFrequency(arg1:string):Promise<void>;
 export function StartUpdateScheduler():Promise<void>;
 
 export function StopUpdateScheduler():Promise<void>;
+
+export function SyncPull(arg1:string):Promise<void>;
+
+export function SyncPush(arg1:string,arg2:string):Promise<void>;
 
 export function ToggleSkill(arg1:string,arg2:string):Promise<boolean>;
 

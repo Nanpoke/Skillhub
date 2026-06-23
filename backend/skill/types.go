@@ -75,15 +75,24 @@ type SkillStatus struct {
 	Status string `json:"status"`
 }
 
+// SyncConfig 同步配置
+type SyncConfig struct {
+	RemoteURL  string `json:"remote_url"`
+	Branch     string `json:"branch"`
+	LastPushAt string `json:"last_push_at"`
+	LastPullAt string `json:"last_pull_at"`
+}
+
 // AppSettings 应用设置
 type AppSettings struct {
-	SkillHubPath     string   `json:"skillhub_path"`
-	Theme            string   `json:"theme"`
-	AutoUpdateCheck  bool     `json:"auto_update_check"`
-	UpdateFrequency  string   `json:"update_frequency"`
-	FirstRun         bool     `json:"first_run"`
-	CustomCategories []string `json:"custom_categories"` // 用户自定义分类
-	GitHubToken      string   `json:"github_token"`      // GitHub API Token，用于解除API限流
+	SkillHubPath     string      `json:"skillhub_path"`
+	Theme            string      `json:"theme"`
+	AutoUpdateCheck  bool        `json:"auto_update_check"`
+	UpdateFrequency  string      `json:"update_frequency"`
+	FirstRun         bool        `json:"first_run"`
+	CustomCategories []string    `json:"custom_categories"` // 用户自定义分类
+	GitHubToken      string      `json:"github_token"`      // GitHub API Token，用于解除API限流
+	Sync             *SyncConfig `json:"sync,omitempty"`     // 数据同步配置
 }
 
 // CategoryInfo 分类信息

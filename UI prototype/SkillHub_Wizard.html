@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkillHub - 启动向导</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'monospace'],
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        cyber: {
+                            dark: '#0a0a0f',
+                            panel: '#12121a',
+                            border: '#1e1e2e',
+                            accent: '#00d4aa',
+                            accent2: '#a855f7',
+                            glow: 'rgba(0, 212, 170, 0.15)',
+                        }
+                    },
+                    animation: {
+                        'glow': 'glow 3s ease-in-out infinite alternate',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'slide-up': 'slideUp 0.5s ease-out',
+                    },
+                    keyframes: {
+                        glow: {
+                            '0%': { boxShadow: '0 0 20px rgba(0, 212, 170, 0.1)' },
+                            '100%': { boxShadow: '0 0 40px rgba(0, 212, 170, 0.3), 0 0 60px rgba(168, 85, 247, 0.1)' },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0a0a0f 0%, #12121a 50%, #0f0f16 100%);
+            min-height: 100vh;
+        }
+
+        /* ==================== 玻璃态面板 - 渐变边框方案 ==================== */
+        .glass-panel {
+            position: relative;
+            background: rgba(26, 26, 36, 0.6);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+        }
+
+        .glass-panel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.12) 0%,
+                rgba(255, 255, 255, 0.04) 50%,
+                rgba(255, 255, 255, 0.12) 100%
+            );
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0.8;
+            transition: opacity 0.3s, background 0.3s;
+            pointer-events: none;
+        }
+
+        .glass-panel:hover::before {
+            opacity: 1;
+            background: linear-gradient(135deg,
+                rgba(0, 212, 170, 0.3) 0%,
+                rgba(168, 85, 247, 0.2) 100%
+            );
+        }
+
+        /* ==================== 渐变文字 ==================== */
+        .gradient-text {
+            background: linear-gradient(135deg, #00d4aa 0%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* ==================== 步骤指示器 ==================== */
+        .step-indicator {
+            transition: all 0.3s ease;
+        }
+        .step-indicator.active {
+            background: linear-gradient(135deg, #00d4aa, #a855f7);
+            box-shadow: 0 0 20px rgba(0, 212, 170, 0.4);
+        }
+
+        /* ==================== 工具卡片 - 渐变边框方案 ==================== */
+        .tool-card {
+            position: relative;
+            background: rgba(26, 26, 36, 0.6);
+            backdrop-filter: blur(12px);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .tool-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.1) 0%,
+                rgba(255, 255, 255, 0.03) 50%,
+                rgba(255, 255, 255, 0.1) 100%
+            );
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0.7;
+            transition: opacity 0.3s, background 0.3s;
+            pointer-events: none;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .tool-card:hover::before {
+            opacity: 1;
+            background: linear-gradient(135deg,
+                rgba(0, 212, 170, 0.35) 0%,
+                rgba(168, 85, 247, 0.25) 100%
+            );
+        }
+
+        .tool-card.selected::before {
+            opacity: 1;
+            background: linear-gradient(135deg,
+                rgba(0, 212, 170, 0.5) 0%,
+                rgba(168, 85, 247, 0.4) 100%
+            );
+        }
+
+        .tool-card.selected {
+            background: rgba(0, 212, 170, 0.08);
+        }
+
+        .tool-card.selected .check-icon {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .tool-card.disabled {
+            opacity: 0.5;
+        }
+
+        .tool-card.disabled:hover {
+            transform: none;
+        }
+
+        .check-icon {
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* ==================== 输入框 ==================== */
+        .path-input {
+            background: rgba(10, 10, 15, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            transition: all 0.2s ease;
+        }
+        .path-input:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+        .path-input:focus {
+            outline: none;
+            border-color: #00d4aa;
+            box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.1),
+                        0 0 20px rgba(0, 212, 170, 0.1);
+        }
+
+        /* ==================== 主按钮 ==================== */
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4aa, #a855f7);
+            color: #0a0a0f;
+            padding: 12px 32px;
+            border-radius: 12px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(0, 212, 170, 0.25);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(0, 212, 170, 0.4),
+                        0 0 30px rgba(0, 212, 170, 0.2);
+        }
+        .btn-primary:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        /* ==================== 次要按钮 ==================== */
+        .btn-secondary {
+            background: rgba(18, 18, 26, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #9ca3af;
+            padding: 12px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-secondary:hover {
+            border-color: rgba(0, 212, 170, 0.4);
+            color: #00d4aa;
+            background: rgba(0, 212, 170, 0.08);
+            box-shadow: 0 0 16px rgba(0, 212, 170, 0.1);
+        }
+
+        /* ==================== 幽灵按钮 ==================== */
+        .btn-ghost {
+            background: rgba(18, 18, 26, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #9ca3af;
+            padding: 10px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-ghost:hover {
+            border-color: rgba(0, 212, 170, 0.4);
+            color: #00d4aa;
+            background: rgba(0, 212, 170, 0.08);
+        }
+
+        /* ==================== 虚线按钮 ==================== */
+        .btn-dashed {
+            background: transparent;
+            border: 1px dashed rgba(255, 255, 255, 0.15);
+            color: #9ca3af;
+            padding: 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-dashed:hover {
+            border-color: rgba(0, 212, 170, 0.4);
+            color: #00d4aa;
+            background: rgba(0, 212, 170, 0.05);
+        }
+
+        /* ==================== 标签 ==================== */
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            background: rgba(0, 212, 170, 0.1);
+            border: 1px solid rgba(0, 212, 170, 0.25);
+            border-radius: 6px;
+            font-size: 12px;
+            color: #00d4aa;
+        }
+        .tag.muted {
+            background: rgba(107, 114, 128, 0.15);
+            border-color: rgba(107, 114, 128, 0.3);
+            color: #9ca3af;
+        }
+
+        /* ==================== 信息面板 ==================== */
+        .info-panel {
+            position: relative;
+            background: rgba(10, 10, 15, 0.6);
+            border-radius: 12px;
+        }
+        .info-panel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.06) 0%,
+                rgba(255, 255, 255, 0.02) 50%,
+                rgba(255, 255, 255, 0.06) 100%
+            );
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+
+        /* ==================== 背景光晕 ==================== */
+        .bg-glow {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.15;
+            pointer-events: none;
+        }
+        .bg-glow-1 {
+            top: -200px;
+            left: -200px;
+            background: #00d4aa;
+            animation: float 8s ease-in-out infinite;
+        }
+        .bg-glow-2 {
+            bottom: -200px;
+            right: -200px;
+            background: #a855f7;
+            animation: float 8s ease-in-out infinite reverse;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(30px, -30px); }
+        }
+    </style>
+</head>
+<body class="text-gray-300 font-sans">
+    <!-- Background Effects -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <!-- Main Container -->
+    <div class="relative z-10 min-h-screen flex items-center justify-center p-6">
+        <div class="w-full max-w-2xl animate-slide-up">
+            <!-- Logo Header -->
+            <div class="text-center mb-10">
+                <div class="inline-flex items-center gap-3 mb-4">
+                    <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyber-accent to-cyber-accent2 flex items-center justify-center animate-glow">
+                        <i class="fas fa-cube text-white text-2xl"></i>
+                    </div>
+                </div>
+                <h1 class="text-3xl font-bold font-mono mb-2">
+                    <span class="gradient-text">Skill</span><span class="text-white">Hub</span>
+                </h1>
+                <p class="text-gray-500">AI 编程工具 Skill 管理器</p>
+            </div>
+
+            <!-- Wizard Card -->
+            <div class="glass-panel p-8">
+                <!-- Step Indicators -->
+                <div class="flex items-center justify-center gap-4 mb-8">
+                    <div class="flex items-center gap-3">
+                        <div id="step1-indicator" class="step-indicator active w-10 h-10 rounded-full bg-cyber-panel flex items-center justify-center font-bold text-sm">1</div>
+                        <span class="text-sm font-medium text-white">配置路径</span>
+                    </div>
+                    <div class="w-16 h-px bg-cyber-border"></div>
+                    <div class="flex items-center gap-3">
+                        <div id="step2-indicator" class="step-indicator w-10 h-10 rounded-full bg-cyber-panel flex items-center justify-center font-bold text-sm text-gray-500">2</div>
+                        <span class="text-sm font-medium text-gray-500">选择工具</span>
+                    </div>
+                </div>
+
+                <!-- Step 1: Configure Path -->
+                <div id="step1" class="step-content">
+                    <div class="text-center mb-8">
+                        <h2 class="text-xl font-semibold text-white mb-2">配置存储位置</h2>
+                        <p class="text-sm text-gray-500">选择 SkillHub 的数据存储目录</p>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-3">SkillHub 存储路径</label>
+                            <div class="flex gap-3">
+                                <div class="flex-1 relative">
+                                    <i class="fas fa-folder absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"></i>
+                                    <input type="text"
+                                           id="storagePath"
+                                           value="~/.skill-hub/"
+                                           class="path-input w-full py-3.5 pl-11 pr-4 text-sm font-mono">
+                                </div>
+                                <button onclick="browseFolder()" class="btn-secondary flex items-center gap-2">
+                                    <i class="fas fa-folder-open"></i>
+                                    <span class="text-sm">浏览</span>
+                                </button>
+                            </div>
+                            <p class="mt-2 text-xs text-gray-500">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                此目录将用于存储所有 Skill 文件和配置
+                            </p>
+                        </div>
+
+                        <!-- Path Validation -->
+                        <div class="info-panel p-4">
+                            <div class="flex items-center gap-3 text-sm">
+                                <i class="fas fa-check-circle text-cyber-accent"></i>
+                                <span>路径有效</span>
+                                <span class="text-gray-500">·</span>
+                                <span class="text-gray-500">磁盘空间充足</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Navigation -->
+                    <div class="flex justify-end mt-8">
+                        <button onclick="goToStep2()" class="btn-primary flex items-center gap-2">
+                            <span>下一步</span>
+                            <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Select Tools -->
+                <div id="step2" class="step-content hidden">
+                    <div class="text-center mb-8">
+                        <h2 class="text-xl font-semibold text-white mb-2">选择 AI 工具</h2>
+                        <p class="text-sm text-gray-500">选择要管理的 AI 编程工具（已自动检测）</p>
+                    </div>
+
+                    <!-- Detected Tools -->
+                    <div class="space-y-3 mb-6">
+                        <!-- Claude Code - 已检测并选中 -->
+                        <div class="tool-card selected p-4" onclick="toggleTool(this)">
+                            <div class="flex items-center justify-between relative z-10">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500/20 to-orange-600/20 flex items-center justify-center">
+                                        <span class="text-sm font-bold text-orange-400">C</span>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-white">Claude Code</h4>
+                                        <p class="text-xs text-gray-500">~/.claude/</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="tag">已检测</span>
+                                    <div class="check-icon w-6 h-6 rounded-full bg-cyber-accent flex items-center justify-center">
+                                        <i class="fas fa-check text-cyber-dark text-xs"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- OpenCode - 已检测并选中 -->
+                        <div class="tool-card selected p-4" onclick="toggleTool(this)">
+                            <div class="flex items-center justify-between relative z-10">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500/20 to-blue-600/20 flex items-center justify-center">
+                                        <span class="text-sm font-bold text-blue-400">O</span>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-white">OpenCode</h4>
+                                        <p class="text-xs text-gray-500">~/.config/opencode/</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="tag">已检测</span>
+                                    <div class="check-icon w-6 h-6 rounded-full bg-cyber-accent flex items-center justify-center">
+                                        <i class="fas fa-check text-cyber-dark text-xs"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Trae - 未检测 -->
+                        <div class="tool-card disabled p-4" onclick="toggleTool(this)">
+                            <div class="flex items-center justify-between relative z-10">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500/20 to-pink-600/20 flex items-center justify-center">
+                                        <span class="text-sm font-bold text-pink-400">T</span>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-white">Trae</h4>
+                                        <p class="text-xs text-gray-500">未检测到</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="tag muted">未检测</span>
+                                    <div class="check-icon w-6 h-6 rounded-full bg-cyber-accent flex items-center justify-center">
+                                        <i class="fas fa-check text-cyber-dark text-xs"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Cursor - 已检测并选中 -->
+                        <div class="tool-card selected p-4" onclick="toggleTool(this)">
+                            <div class="flex items-center justify-between relative z-10">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500/20 to-purple-600/20 flex items-center justify-center">
+                                        <span class="text-sm font-bold text-purple-400">Cu</span>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-white">Cursor</h4>
+                                        <p class="text-xs text-gray-500">~/.cursor/</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="tag">已检测</span>
+                                    <div class="check-icon w-6 h-6 rounded-full bg-cyber-accent flex items-center justify-center">
+                                        <i class="fas fa-check text-cyber-dark text-xs"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CodeBuddy - 未检测 -->
+                        <div class="tool-card disabled p-4" onclick="toggleTool(this)">
+                            <div class="flex items-center justify-between relative z-10">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500/20 to-green-600/20 flex items-center justify-center">
+                                        <span class="text-sm font-bold text-green-400">CB</span>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-white">CodeBuddy</h4>
+                                        <p class="text-xs text-gray-500">未检测到</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="tag muted">未检测</span>
+                                    <div class="check-icon w-6 h-6 rounded-full bg-cyber-accent flex items-center justify-center">
+                                        <i class="fas fa-check text-cyber-dark text-xs"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Add Custom Tool -->
+                    <button onclick="addCustomTool()" class="btn-dashed w-full flex items-center justify-center gap-2">
+                        <i class="fas fa-plus"></i>
+                        <span class="text-sm">手动添加工具路径</span>
+                    </button>
+
+                    <!-- Navigation -->
+                    <div class="flex justify-between mt-8">
+                        <button onclick="goToStep1()" class="btn-ghost flex items-center gap-2">
+                            <i class="fas fa-arrow-left"></i>
+                            <span>上一步</span>
+                        </button>
+                        <button onclick="completeSetup()" class="btn-primary flex items-center gap-2">
+                            <span>完成设置</span>
+                            <i class="fas fa-check"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="text-center mt-8 text-sm text-gray-600">
+                <p>SkillHub v1.0 · 开源软件</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+
+        function goToStep2() {
+            document.getElementById('step1').classList.add('hidden');
+            document.getElementById('step2').classList.remove('hidden');
+
+            document.getElementById('step1-indicator').classList.remove('active');
+            document.getElementById('step1-indicator').innerHTML = '<i class="fas fa-check text-cyber-accent"></i>';
+            document.getElementById('step2-indicator').classList.add('active');
+            document.getElementById('step2-indicator').classList.remove('text-gray-500');
+
+            currentStep = 2;
+        }
+
+        function goToStep1() {
+            document.getElementById('step2').classList.add('hidden');
+            document.getElementById('step1').classList.remove('hidden');
+
+            document.getElementById('step2-indicator').classList.remove('active');
+            document.getElementById('step2-indicator').classList.add('text-gray-500');
+            document.getElementById('step1-indicator').classList.add('active');
+            document.getElementById('step1-indicator').textContent = '1';
+
+            currentStep = 1;
+        }
+
+        function toggleTool(element) {
+            // 如果是禁用状态，不执行切换
+            if (element.classList.contains('disabled')) {
+                return;
+            }
+            element.classList.toggle('selected');
+        }
+
+        function browseFolder() {
+            alert('打开文件夹选择对话框...');
+        }
+
+        function addCustomTool() {
+            alert('添加自定义工具路径...');
+        }
+
+        function completeSetup() {
+            alert('设置完成！正在初始化 SkillHub...');
+            // 这里会创建目录结构并进入主界面
+        }
+    </script>
+</body>
+</html>

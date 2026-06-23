@@ -14,10 +14,10 @@ type Adapter interface {
 	// IsInstalled 检查工具是否已安装
 	IsInstalled() bool
 
-	// EnableSkill 启用指定 Skill（复制到工具目录）
+	// EnableSkill 启用指定 Skill（创建链接到工具目录，源目录更新后自动生效）
 	EnableSkill(skillName string, skillPath string) error
 
-	// DisableSkill 禁用指定 Skill（从工具目录删除）
+	// DisableSkill 禁用指定 Skill（安全删除链接，不会删除源目录内容）
 	DisableSkill(skillName string) error
 
 	// IsSkillEnabled 检查 Skill 是否已在该工具中启用

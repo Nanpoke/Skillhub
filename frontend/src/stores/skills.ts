@@ -321,6 +321,26 @@ export const useSkillStore = defineStore('skills', () => {
     return { success, failed }
   }
 
+  // 活跃筛选条件数量
+  const activeFilterCount = computed(() => {
+    let count = 0
+    if (selectedCategory.value !== '全部') count++
+    count += selectedTags.value.length
+    count += selectedTools.value.length
+    if (searchQuery.value) count++
+    if (filterUpdateOnly.value) count++
+    return count
+  })
+
+  // 清除全部筛选
+  function clearAllFilters() {
+    selectedCategory.value = '全部'
+    selectedTags.value = []
+    selectedTools.value = []
+    searchQuery.value = ''
+    filterUpdateOnly.value = false
+  }
+
   // 切换更新忽略状态
   function toggleIgnoreUpdate(skillId: string) {
     const index = ignoredUpdates.value.indexOf(skillId)
@@ -368,6 +388,8 @@ export const useSkillStore = defineStore('skills', () => {
     loadCategories,
     addCategory,
     deleteCategory,
+    activeFilterCount,
+    clearAllFilters,
     batchUpdateAll,
     toggleIgnoreUpdate
   }
